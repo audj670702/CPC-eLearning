@@ -11,6 +11,24 @@
     monitorTv: 'https://qrotv.scad.mx/?monitor=1'
   };
 
+  // Estado provisional hasta conectar la sesión real de Wix Members.
+  const MEMBER = null;
+
+  const sessionControl = MEMBER
+    ? `
+      <div class="member-control">
+        <button class="member-trigger" type="button" aria-expanded="false">
+          ${MEMBER.avatar ? `<img src="${MEMBER.avatar}" alt="">` : '<span class="member-avatar">●</span>'}
+          <span class="member-name">${MEMBER.name}</span>
+          <span class="member-chevron">⌄</span>
+        </button>
+        <div class="member-menu" hidden>
+          <span class="member-email">${MEMBER.email}</span>
+          <button class="logout-btn" type="button">Cerrar sesión</button>
+        </div>
+      </div>`
+    : '<button class="session-btn" type="button">Iniciar sesión</button>';
+
   app.innerHTML = `
     <div class="app-shell">
       <header class="topbar">
@@ -20,20 +38,11 @@
         </div>
         <div class="top-actions">
           <button class="install-btn" type="button" disabled>Instalar app</button>
-          <button class="session-btn" type="button">Iniciar sesión</button>
+          ${sessionControl}
         </div>
       </header>
 
       <main class="home-cpc">
-        <section class="identity-card" aria-label="Identidad de usuario">
-          <div class="avatar-placeholder" aria-hidden="true">●</div>
-          <div class="identity-copy">
-            <strong>Invitado</strong>
-            <span>Inicia sesión para acceder a tu cuenta</span>
-          </div>
-          <button class="identity-login" type="button" aria-label="Iniciar sesión">›</button>
-        </section>
-
         <section class="tv-card" aria-label="CPC TV">
           <div class="tv-preview">
             <iframe
@@ -87,7 +96,7 @@
 
       <footer class="app-footer">
         <div class="powered-by"><span>Powered by</span><img src="assets/logo_scad_hub.png" alt="SCaD HUB"></div>
-        <span class="version">v0.2 | 2026</span>
+        <span class="version">v0.2.1 | 2026</span>
       </footer>
     </div>
 
@@ -102,6 +111,8 @@
   const tvModal = document.getElementById('tvModal');
   const expandTv = app.querySelector('.expand-tv');
   const closeTv = app.querySelector('.tv-modal-close');
+  const memberTrigger = app.querySelector('.member-trigger');
+  const memberMenu = app.querySelector('.member-menu');
 
   expandTv?.addEventListener('click', () => {
     tvModal.hidden = false;
@@ -118,5 +129,11 @@
       tvModal.hidden = true;
       document.body.classList.remove('modal-open');
     }
+  });
+
+  memberTrigger?.addEventListener('click', () => {
+    const open = memberTrigger.getAttribute('aria-expanded') === 'true';
+    memberTrigger.setAttribute('aria-expanded', String(!open));
+    memberMenu.hidden = open;
   });
 })();
