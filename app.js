@@ -4,7 +4,7 @@ const app = document.getElementById('app');
 if (!app) throw new Error('No se encontró #app');
 
 const URLS = {
-  misCursos: 'https://www.scad.mx/members-area/gestor-isp3068/challenges',
+  misCursos: 'https://www.scad.mx/mis-cursos',
   catalogoCursos: 'https://www.scad.mx/e-learning',
   gymEntrenamiento: 'https://gym.scad.mx/',
   monitorTv: 'https://qrotv.scad.mx/?monitor=1'
@@ -207,7 +207,7 @@ function render(member) {
             <span class="arrow">›</span>
           </button>
 
-          <a class="module-card accent-navy" href="${URLS.misCursos}">
+          <a class="module-card accent-navy" href="${URLS.misCursos}?target=mis-cursos">
             <span class="module-icon">▶</span>
             <span class="module-copy"><strong>MIS CURSOS</strong><small>Programas en curso</small></span>
             <span class="arrow">›</span>
@@ -235,7 +235,7 @@ function render(member) {
 
       <footer class="app-footer">
         <div class="powered-by"><span>Powered by</span><img src="assets/logo_scad_hub.png" alt="SCaD HUB"></div>
-        <span class="version">v0.2.2 | 2026</span>
+        <span class="version">v0.2.3 | 2026</span>
       </footer>
     </div>
 
