@@ -7,8 +7,36 @@ const URLS = {
   misCursos: 'https://www.scad.mx/mis-cursos',
   catalogoCursos: 'https://www.scad.mx/e-learning',
   gymEntrenamiento: 'https://gym.scad.mx/',
-  monitorTv: 'https://qrotv.scad.mx/?monitor=1'
+  monitorTv: 'https://qrotv.scad.mx/?monitor=1',
+  certificacionInfospe: 'assets/cpc_certificacion.pdf'
 };
+
+const CONSTANCIAS = [
+  {
+    numero: '01',
+    titulo: 'Constancia de convenio de capacitación',
+    texto: 'Se entrega un convenio de capacitación por empresa participante, incluyendo identificación de la empresa, personal a capacitar, y fechas de inicio y término. Esta constancia permite la gestión de la constancia de capacitación emitida por INFOSPE para proceso de refrendo o permiso.',
+    url: 'https://static.wixstatic.com/media/0492f8_4bf2740fb4904a42bb2f0398e35601e5~mv2.png'
+  },
+  {
+    numero: '02',
+    titulo: 'Constancia de personal en capacitación',
+    texto: 'Se entrega al inicio de cada curso e incluye los nombres de los guardias inscritos, identificación del curso y fechas de inicio y fin. Esta constancia permite al INFOSPE dar seguimiento al compromiso del convenio.',
+    url: 'https://static.wixstatic.com/media/0492f8_a6755c92d89e4016bb8965c82f12e2a5~mv2.png'
+  },
+  {
+    numero: '03',
+    titulo: 'Constancia de acreditación del curso',
+    texto: 'Se entrega al concluir el curso, certificando que el guardia cumplió asistencia y evaluación. Es emitida por INFOSPE con gestión de CPC y entregada a la empresa contratante.',
+    url: 'https://static.wixstatic.com/media/0492f8_b4d47f78a89f4aa89aa4a7fcc91db3ca~mv2.png'
+  },
+  {
+    numero: '04',
+    titulo: 'Constancia de finalización del programa digital',
+    texto: 'El participante accede al programa digital en la plataforma SCaD, con material didáctico y recursos interactivos. Al concluir satisfactoriamente las actividades, se genera automáticamente su constancia de finalización y la recibe en su correo electrónico.',
+    url: 'https://static.wixstatic.com/media/0492f8_70e0da893a28473d95c91adfad88a645~mv2.png'
+  }
+];
 
 const WIX = {
   clientId: '76bd3893-6f4b-4da9-bdc8-9c1d22513ee6',
@@ -83,12 +111,7 @@ async function finishOAuthCallbackIfNeeded() {
     throw new Error('No se encontró el estado OAuth guardado.');
   }
 
-  const memberTokens = await wixClient.auth.getMemberTokens(
-    returned.code,
-    returned.state,
-    stored
-  );
-
+  const memberTokens = await wixClient.auth.getMemberTokens(returned.code, returned.state, stored);
   wixClient.auth.setTokens(memberTokens);
   tokens = memberTokens;
   saveTokens(memberTokens);
@@ -120,36 +143,38 @@ async function getCurrentMember() {
     return null;
   }
 
-  if (!response.ok) {
-    throw new Error(`No fue posible leer el miembro Wix (${response.status}).`);
-  }
-
+  if (!response.ok) throw new Error(`No fue posible leer el miembro Wix (${response.status}).`);
   const data = await response.json();
   return data.member || null;
 }
 
 function normalizeMember(member) {
   if (!member) return null;
-
   const contact = member.contact || {};
   const profile = member.profile || {};
   const firstName = contact.firstName || profile.firstName || '';
   const lastName = contact.lastName || profile.lastName || '';
   const fullName = `${firstName} ${lastName}`.trim();
   const name = fullName || profile.nickname || member.loginEmail || 'Usuario';
+  const avatar = profile.photo?.url || profile.photo?.image?.url || profile.image?.url || '';
 
-  const avatar =
-    profile.photo?.url ||
-    profile.photo?.image?.url ||
-    profile.image?.url ||
-    '';
+  return { id: member.id, name, email: member.loginEmail || '', avatar };
+}
 
-  return {
-    id: member.id,
-    name,
-    email: member.loginEmail || '',
-    avatar
-  };
+function constanciasHtml() {
+  return CONSTANCIAS.map((item) => `
+    <article class="infospe-cert-card">
+      <button class="infospe-cert-header" type="button" aria-expanded="false">
+        <span class="infospe-cert-number">${item.numero}</span>
+        <span class="infospe-cert-title">${item.titulo}</span>
+        <span class="infospe-cert-toggle">＋</span>
+      </button>
+      <div class="infospe-cert-body" hidden>
+        <p>${item.texto}</p>
+        <a href="${item.url}" target="_blank" rel="noopener noreferrer" class="infospe-view-btn">Ver constancia</a>
+      </div>
+    </article>
+  `).join('');
 }
 
 function render(member) {
@@ -184,13 +209,7 @@ function render(member) {
       <main class="home-cpc">
         <section class="tv-card" aria-label="CPC TV">
           <div class="tv-preview">
-            <iframe
-              src="${URLS.monitorTv}"
-              title="CPC TV"
-              loading="eager"
-              allow="autoplay; fullscreen; picture-in-picture"
-              allowfullscreen
-            ></iframe>
+            <iframe src="${URLS.monitorTv}" title="CPC TV" loading="eager" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
           </div>
           <div class="tv-copy">
             <span class="live-label">EN VIVO</span>
@@ -225,6 +244,12 @@ function render(member) {
             <span class="arrow">›</span>
           </button>
 
+          <button class="module-card accent-infospe infospe-module" type="button">
+            <span class="module-icon module-logo"><img src="assets/logo_infospe.png" alt="INFOSPE"></span>
+            <span class="module-copy"><strong>INFOSPE - SEGURIDAD PRIVADA</strong><small>Acreditación y constancias</small></span>
+            <span class="arrow">›</span>
+          </button>
+
           <a class="module-card accent-orange" href="${URLS.gymEntrenamiento}">
             <span class="module-icon">＋</span>
             <span class="module-copy"><strong>GYM ENTRENAMIENTO</strong><small>Acceso a entrenamiento</small></span>
@@ -235,7 +260,7 @@ function render(member) {
 
       <footer class="app-footer">
         <div class="powered-by"><span>Powered by</span><img src="assets/logo_scad_hub.png" alt="SCaD HUB"></div>
-        <span class="version">v0.2.3 | 2026</span>
+        <span class="version">v0.2.4 | 2026</span>
       </footer>
     </div>
 
@@ -243,6 +268,45 @@ function render(member) {
       <button class="tv-modal-close" type="button" aria-label="Cerrar">×</button>
       <div class="tv-modal-player">
         <iframe src="${URLS.monitorTv}" title="CPC TV ampliado" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+      </div>
+    </div>
+
+    <div class="infospe-modal" id="infospeModal" hidden>
+      <div class="infospe-panel">
+        <div class="infospe-panel-top">
+          <div class="infospe-heading">
+            <img src="assets/logo_infospe.png" alt="INFOSPE">
+            <div>
+              <strong>INFOSPE - Seguridad Privada</strong>
+              <span>Curso Básico de Profesionalización</span>
+            </div>
+          </div>
+          <button class="infospe-close" type="button" aria-label="Cerrar">×</button>
+        </div>
+
+        <div class="infospe-content">
+          <section class="infospe-info-block">
+            <p>La normatividad en el Estado de Guanajuato establece la obligación a la empresas de seguridad privada que cumplan un programa de capacitación basado en la currícula que el INFOSPE establece.</p>
+            <p>Este requisito se cumple acreditando la aprobación del Curso Básico de Profesionalización en Materia de Seguridad Privada.</p>
+            <p>El curso es presencial con apoyo en plataformas digitales y sesiones virtuales.</p>
+            <p>El período de impartición del curso base se realiza en 12 sesiones, una por semana.</p>
+            <p>De acuerdo a los requerimientos de la empresa, se puede impartir el curso en períodos convenientes para el cliente.</p>
+          </section>
+
+          <section class="infospe-accreditation">
+            <div class="infospe-section-head">
+              <strong>Acreditación</strong>
+              <a href="${URLS.certificacionInfospe}" target="_blank" rel="noopener noreferrer">Ver documento</a>
+            </div>
+            <iframe src="${URLS.certificacionInfospe}#toolbar=0&navpanes=0" title="Acreditación CPC INFOSPE"></iframe>
+          </section>
+
+          <section class="infospe-constancias">
+            <h3>Constancias que emitimos</h3>
+            <p class="infospe-intro">Documentamos formalmente cada etapa del proceso de capacitación, brindando certeza a las empresas de seguridad privada y a su personal.</p>
+            <div class="infospe-cert-list">${constanciasHtml()}</div>
+          </section>
+        </div>
       </div>
     </div>
   `;
@@ -258,6 +322,9 @@ function bindUI() {
   const memberMenu = app.querySelector('.member-menu');
   const sessionBtn = app.querySelector('.session-btn');
   const logoutBtn = app.querySelector('.logout-btn');
+  const infospeModule = app.querySelector('.infospe-module');
+  const infospeModal = document.getElementById('infospeModal');
+  const infospeClose = app.querySelector('.infospe-close');
 
   expandTv?.addEventListener('click', () => {
     tvModal.hidden = false;
@@ -276,6 +343,48 @@ function bindUI() {
     }
   });
 
+  infospeModule?.addEventListener('click', () => {
+    infospeModal.hidden = false;
+    document.body.classList.add('modal-open');
+  });
+
+  infospeClose?.addEventListener('click', () => {
+    infospeModal.hidden = true;
+    document.body.classList.remove('modal-open');
+  });
+
+  infospeModal?.addEventListener('click', (event) => {
+    if (event.target === infospeModal) {
+      infospeModal.hidden = true;
+      document.body.classList.remove('modal-open');
+    }
+  });
+
+  app.querySelectorAll('.infospe-cert-header').forEach((header) => {
+    header.addEventListener('click', () => {
+      const card = header.closest('.infospe-cert-card');
+      const body = card?.querySelector('.infospe-cert-body');
+      const toggle = card?.querySelector('.infospe-cert-toggle');
+      if (!card || !body) return;
+
+      const open = header.getAttribute('aria-expanded') === 'true';
+      app.querySelectorAll('.infospe-cert-header').forEach((otherHeader) => {
+        otherHeader.setAttribute('aria-expanded', 'false');
+        const otherCard = otherHeader.closest('.infospe-cert-card');
+        const otherBody = otherCard?.querySelector('.infospe-cert-body');
+        const otherToggle = otherCard?.querySelector('.infospe-cert-toggle');
+        if (otherBody) otherBody.hidden = true;
+        if (otherToggle) otherToggle.textContent = '＋';
+      });
+
+      if (!open) {
+        header.setAttribute('aria-expanded', 'true');
+        body.hidden = false;
+        if (toggle) toggle.textContent = '−';
+      }
+    });
+  });
+
   memberTrigger?.addEventListener('click', () => {
     const open = memberTrigger.getAttribute('aria-expanded') === 'true';
     memberTrigger.setAttribute('aria-expanded', String(!open));
@@ -286,12 +395,7 @@ function bindUI() {
     try {
       sessionBtn.disabled = true;
       sessionBtn.textContent = 'Conectando…';
-
-      const oauthData = wixClient.auth.generateOAuthData(
-        WIX.redirectUri,
-        window.location.href.split('#')[0]
-      );
-
+      const oauthData = wixClient.auth.generateOAuthData(WIX.redirectUri, window.location.href.split('#')[0]);
       localStorage.setItem(STORAGE.oauth, JSON.stringify(oauthData));
       const { authUrl } = await wixClient.auth.getAuthUrl(oauthData);
       window.location.href = authUrl;
