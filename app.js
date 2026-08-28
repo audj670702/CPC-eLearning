@@ -260,7 +260,7 @@ function render(member) {
 
       <footer class="app-footer">
         <div class="powered-by"><span>Powered by</span><img src="assets/logo_scad_hub.png" alt="SCaD HUB"></div>
-        <span class="version">v0.2.6 | 2026</span>
+        <span class="version">v0.2.7 | 2026</span>
       </footer>
     </div>
 
@@ -278,25 +278,39 @@ function render(member) {
         </div>
 
         <div class="infospe-content">
-          <section class="infospe-info-block">
-            <p>La normatividad en el Estado de Guanajuato establece la obligación a la empresas de seguridad privada que cumplan un programa de capacitación basado en la currícula que el INFOSPE establece.</p>
-            <p>Este requisito se cumple acreditando la aprobación del Curso Básico de Profesionalización en Materia de Seguridad Privada.</p>
-            <p>El curso es presencial con apoyo en plataformas digitales y sesiones virtuales.</p>
-            <p>El período de impartición del curso base se realiza en 12 sesiones, una por semana.</p>
-            <p>De acuerdo a los requerimientos de la empresa, se puede impartir el curso en períodos convenientes para el cliente.</p>
+          <section class="infospe-info-block infospe-intro-layout">
+            <div class="infospe-info-copy">
+              <p>La normatividad en el Estado de Guanajuato establece la obligación a la empresas de seguridad privada que cumplan un programa de capacitación basado en la currícula que el INFOSPE establece.</p>
+              <p>Este requisito se cumple acreditando la aprobación del Curso Básico de Profesionalización en Materia de Seguridad Privada.</p>
+              <p>El curso es presencial con apoyo en plataformas digitales y sesiones virtuales.</p>
+              <p>El período de impartición del curso base se realiza en 12 sesiones, una por semana.</p>
+              <p>De acuerdo a los requerimientos de la empresa, se puede impartir el curso en períodos convenientes para el cliente.</p>
+            </div>
+            <div class="infospe-accreditation-inline">
+              <strong>Acreditación</strong>
+              <a class="infospe-doc-thumb infospe-accreditation-thumb" href="${URLS.certificacionInfospe}" target="_blank" rel="noopener noreferrer" aria-label="Ver acreditación CPC INFOSPE">
+                <span class="infospe-pdf-preview">
+                  <iframe src="${URLS.certificacionInfospe}#toolbar=0&navpanes=0&scrollbar=0&view=FitH" title="Vista previa de acreditación CPC INFOSPE" tabindex="-1"></iframe>
+                </span>
+                <span class="infospe-thumb-action">Ver documento</span>
+              </a>
+            </div>
           </section>
 
-          <section class="infospe-accreditation">
-            <div class="infospe-section-head">
-              <strong>Acreditación</strong>
-              <span>Haz clic en la miniatura para ver el documento</span>
+          <section class="infospe-commercial">
+            <div class="infospe-commercial-row">
+              <strong>Precio regular:</strong>
+              <p>$ 6,900.00 + IVA por persona.</p>
             </div>
-            <a class="infospe-doc-thumb infospe-accreditation-thumb" href="${URLS.certificacionInfospe}" target="_blank" rel="noopener noreferrer" aria-label="Ver acreditación CPC INFOSPE">
-              <span class="infospe-pdf-preview">
-                <iframe src="${URLS.certificacionInfospe}#toolbar=0&navpanes=0&scrollbar=0&view=FitH" title="Vista previa de acreditación CPC INFOSPE" tabindex="-1"></iframe>
-              </span>
-              <span class="infospe-thumb-action">Ver documento</span>
-            </a>
+            <div class="infospe-commercial-row infospe-commercial-long">
+              <strong>Garantía de Inversión:</strong>
+              <div>
+                <p>La política de GARANTÍA DE INVERSIÓN consiste en que, si por cualquier motivo un participante inscrito no concluye el curso, se bonifica el pago realizado a favor de otro participante en el siguiente curso.</p>
+                <p>La validez de esta política de inversión está sujeta a que la inscripción del nuevo participante se realice en el curso inmediato y se inscriba de manera regular a otro participante. Aplica sólo en precio regular.</p>
+                <p>El pago se realiza al momento de la inscripción del guardia al curso.</p>
+                <p>En el caso de convenios de capacitación en grupos diferidos (inscripción de guardias en diferentes fechas), se realiza el pago del 20% a la firma del convenio y el 80% de cada guardia conforme se vayan inscribiendo. El primer grupo se paga al 100%.</p>
+              </div>
+            </div>
           </section>
 
           <section class="infospe-constancias">
