@@ -164,14 +164,16 @@ function normalizeMember(member) {
 function constanciasHtml() {
   return CONSTANCIAS.map((item) => `
     <article class="infospe-cert-card">
-      <button class="infospe-cert-header" type="button" aria-expanded="false">
-        <span class="infospe-cert-number">${item.numero}</span>
-        <span class="infospe-cert-title">${item.titulo}</span>
-        <span class="infospe-cert-toggle">＋</span>
-      </button>
-      <div class="infospe-cert-body" hidden>
+      <a class="infospe-doc-thumb infospe-cert-thumb" href="${item.url}" target="_blank" rel="noopener noreferrer" aria-label="Ver ${item.titulo}">
+        <img src="${item.url}" alt="${item.titulo}">
+        <span class="infospe-thumb-action">Ver documento</span>
+      </a>
+      <div class="infospe-cert-copy">
+        <div class="infospe-cert-title-row">
+          <span class="infospe-cert-number">${item.numero}</span>
+          <strong>${item.titulo}</strong>
+        </div>
         <p>${item.texto}</p>
-        <a href="${item.url}" target="_blank" rel="noopener noreferrer" class="infospe-view-btn">Ver constancia</a>
       </div>
     </article>
   `).join('');
@@ -260,7 +262,7 @@ function render(member) {
 
       <footer class="app-footer">
         <div class="powered-by"><span>Powered by</span><img src="assets/logo_scad_hub.png" alt="SCaD HUB"></div>
-        <span class="version">v0.2.4 | 2026</span>
+        <span class="version">v0.2.5 | 2026</span>
       </footer>
     </div>
 
@@ -296,9 +298,14 @@ function render(member) {
           <section class="infospe-accreditation">
             <div class="infospe-section-head">
               <strong>Acreditación</strong>
-              <a href="${URLS.certificacionInfospe}" target="_blank" rel="noopener noreferrer">Ver documento</a>
+              <span>Haz clic en la miniatura para ver el documento</span>
             </div>
-            <iframe src="${URLS.certificacionInfospe}#toolbar=0&navpanes=0" title="Acreditación CPC INFOSPE"></iframe>
+            <a class="infospe-doc-thumb infospe-accreditation-thumb" href="${URLS.certificacionInfospe}" target="_blank" rel="noopener noreferrer" aria-label="Ver acreditación CPC INFOSPE">
+              <span class="infospe-pdf-preview">
+                <iframe src="${URLS.certificacionInfospe}#toolbar=0&navpanes=0&scrollbar=0&view=FitH" title="Vista previa de acreditación CPC INFOSPE" tabindex="-1"></iframe>
+              </span>
+              <span class="infospe-thumb-action">Ver documento</span>
+            </a>
           </section>
 
           <section class="infospe-constancias">
@@ -358,31 +365,6 @@ function bindUI() {
       infospeModal.hidden = true;
       document.body.classList.remove('modal-open');
     }
-  });
-
-  app.querySelectorAll('.infospe-cert-header').forEach((header) => {
-    header.addEventListener('click', () => {
-      const card = header.closest('.infospe-cert-card');
-      const body = card?.querySelector('.infospe-cert-body');
-      const toggle = card?.querySelector('.infospe-cert-toggle');
-      if (!card || !body) return;
-
-      const open = header.getAttribute('aria-expanded') === 'true';
-      app.querySelectorAll('.infospe-cert-header').forEach((otherHeader) => {
-        otherHeader.setAttribute('aria-expanded', 'false');
-        const otherCard = otherHeader.closest('.infospe-cert-card');
-        const otherBody = otherCard?.querySelector('.infospe-cert-body');
-        const otherToggle = otherCard?.querySelector('.infospe-cert-toggle');
-        if (otherBody) otherBody.hidden = true;
-        if (otherToggle) otherToggle.textContent = '＋';
-      });
-
-      if (!open) {
-        header.setAttribute('aria-expanded', 'true');
-        body.hidden = false;
-        if (toggle) toggle.textContent = '−';
-      }
-    });
   });
 
   memberTrigger?.addEventListener('click', () => {
