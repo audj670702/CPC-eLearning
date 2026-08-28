@@ -14,7 +14,10 @@
 
   app.innerHTML = `
     <main class="home-cpc">
-      <h1>CPC e-Learning</h1>
+      <header class="cpc-brand">
+        <img src="assets/icon-192.png" alt="CPC Centro Privado de Capacitación">
+        <h1>CPC e-Learning</h1>
+      </header>
 
       <section class="tv-monitor" aria-label="Monitor TV Digital Internet">
         <div class="tv-monitor-frame">
@@ -33,6 +36,11 @@
         <a href="${URLS.catalogoCursos}">Catálogo de cursos</a>
         <a href="${URLS.gymEntrenamiento}">GYM Entrenamiento</a>
       </nav>
+
+      <footer class="powered-by">
+        <span>Powered by</span>
+        <img src="assets/logo_scad_hub.png" alt="SCaD HUB">
+      </footer>
     </main>
   `;
 })();
