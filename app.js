@@ -7,7 +7,7 @@ const URLS = {
   misCursos: 'https://www.scad.mx/mis-cursos',
   catalogoCursos: 'https://www.scad.mx/e-learning',
   gymEntrenamiento: 'https://gym.scad.mx/',
-  monitorTv: 'https://qrotv.scad.mx/?monitor=1',
+  hlsTv: 'https://motortv.scad.mx/hls/canal.m3u8',
   certificacionInfospe: 'assets/cpc_certificacion.pdf'
 };
 
@@ -93,9 +93,7 @@ async function ensureFreshTokens() {
 }
 
 async function finishOAuthCallbackIfNeeded() {
-  if (!window.location.hash || (!window.location.hash.includes('code=') && !window.location.hash.includes('error='))) {
-    return;
-  }
+  if (!window.location.hash || (!window.location.hash.includes('code=') && !window.location.hash.includes('error='))) return;
 
   const stored = JSON.parse(localStorage.getItem(STORAGE.oauth) || 'null');
   const returned = wixClient.auth.parseFromUrl();
@@ -157,7 +155,6 @@ function normalizeMember(member) {
   const fullName = `${firstName} ${lastName}`.trim();
   const name = fullName || profile.nickname || member.loginEmail || 'Usuario';
   const avatar = profile.photo?.url || profile.photo?.image?.url || profile.image?.url || '';
-
   return { id: member.id, name, email: member.loginEmail || '', avatar };
 }
 
@@ -211,12 +208,13 @@ function render(member) {
       <main class="home-cpc">
         <section class="tv-card" aria-label="CPC TV">
           <div class="tv-preview">
-            <iframe src="${URLS.monitorTv}" title="CPC TV" loading="eager" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+            <video id="cpcTvPlayer" autoplay muted playsinline preload="auto"></video>
           </div>
           <div class="tv-copy">
             <span class="live-label">EN VIVO</span>
             <strong>CPC TV</strong>
             <small>TV Digital Internet</small>
+            <button class="tv-audio-btn" type="button" aria-pressed="false">🔇 Activar sonido</button>
           </div>
           <button class="expand-tv" type="button" aria-label="Ampliar CPC TV">⛶</button>
         </section>
@@ -262,15 +260,8 @@ function render(member) {
 
       <footer class="app-footer">
         <div class="powered-by"><span>Powered by</span><img src="assets/logo_scad_hub.png" alt="SCaD HUB"></div>
-        <span class="version">v0.2.5 | 2026</span>
+        <span class="version">v0.2.6 | 2026</span>
       </footer>
-    </div>
-
-    <div class="tv-modal" id="tvModal" hidden>
-      <button class="tv-modal-close" type="button" aria-label="Cerrar">×</button>
-      <div class="tv-modal-player">
-        <iframe src="${URLS.monitorTv}" title="CPC TV ampliado" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
-      </div>
     </div>
 
     <div class="infospe-modal" id="infospeModal" hidden>
@@ -319,12 +310,42 @@ function render(member) {
   `;
 
   bindUI();
+  initTvPlayer();
+}
+
+function initTvPlayer() {
+  const video = document.getElementById('cpcTvPlayer');
+  if (!video) return;
+
+  video.muted = true;
+  video.defaultMuted = true;
+  video.playsInline = true;
+
+  if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = URLS.hlsTv;
+    video.play().catch(() => {});
+    return;
+  }
+
+  if (window.Hls?.isSupported()) {
+    const hls = new window.Hls({
+      enableWorker: true,
+      lowLatencyMode: false,
+      backBufferLength: 30,
+      liveSyncDurationCount: 3,
+      liveMaxLatencyDurationCount: 8
+    });
+    hls.loadSource(URLS.hlsTv);
+    hls.attachMedia(video);
+    hls.on(window.Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+    window.__cpcHls = hls;
+  }
 }
 
 function bindUI() {
-  const tvModal = document.getElementById('tvModal');
+  const video = document.getElementById('cpcTvPlayer');
   const expandTv = app.querySelector('.expand-tv');
-  const closeTv = app.querySelector('.tv-modal-close');
+  const audioBtn = app.querySelector('.tv-audio-btn');
   const memberTrigger = app.querySelector('.member-trigger');
   const memberMenu = app.querySelector('.member-menu');
   const sessionBtn = app.querySelector('.session-btn');
@@ -333,21 +354,20 @@ function bindUI() {
   const infospeModal = document.getElementById('infospeModal');
   const infospeClose = app.querySelector('.infospe-close');
 
+  audioBtn?.addEventListener('click', async () => {
+    if (!video) return;
+    const enableAudio = video.muted;
+    video.muted = !enableAudio;
+    video.defaultMuted = !enableAudio;
+    try { await video.play(); } catch (_) {}
+    audioBtn.setAttribute('aria-pressed', String(enableAudio));
+    audioBtn.textContent = enableAudio ? '🔊 Sonido activo' : '🔇 Activar sonido';
+  });
+
   expandTv?.addEventListener('click', () => {
-    tvModal.hidden = false;
-    document.body.classList.add('modal-open');
-  });
-
-  closeTv?.addEventListener('click', () => {
-    tvModal.hidden = true;
-    document.body.classList.remove('modal-open');
-  });
-
-  tvModal?.addEventListener('click', (event) => {
-    if (event.target === tvModal) {
-      tvModal.hidden = true;
-      document.body.classList.remove('modal-open');
-    }
+    if (!video) return;
+    if (video.requestFullscreen) video.requestFullscreen().catch(() => {});
+    else if (video.webkitEnterFullscreen) video.webkitEnterFullscreen();
   });
 
   infospeModule?.addEventListener('click', () => {
