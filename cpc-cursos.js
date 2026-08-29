@@ -1,6 +1,7 @@
 const CPC_DATA = {
   tokenStorageKey: 'cpc_wix_member_tokens',
   queryUrl: 'https://www.wixapis.com/wix-data/v2/items/query',
+  patchItemUrl: 'https://www.wixapis.com/data/v2/items',
   memberUrl: 'https://www.wixapis.com/members/v1/members/my?fieldSet=FULL',
   collections: {
     usuarios: 'CPC_Usuario',
@@ -71,13 +72,64 @@ async function queryCollection(dataCollectionId, query = {}) {
   return result.dataItems || [];
 }
 
-async function getCurrentMemberId() {
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function extractMemberEmail(member) {
+  const candidates = [
+    member?.loginEmail,
+    member?.contactDetails?.emails?.[0],
+    member?.contact?.emails?.[0]
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    if (typeof candidate === 'string') return normalizeEmail(candidate);
+    const value = candidate.email || candidate.value || candidate.address || '';
+    if (value) return normalizeEmail(value);
+  }
+
+  return '';
+}
+
+async function getCurrentMemberIdentity() {
   const result = await wixFetch(CPC_DATA.memberUrl);
-  return result.member?.id || '';
+  const member = result.member || {};
+  return {
+    memberId: member.id || '',
+    email: extractMemberEmail(member)
+  };
+}
+
+async function bindMemberIdToUser(itemId, memberId) {
+  if (!itemId || !memberId) throw new Error('No fue posible completar la vinculación de identidad CPC.');
+
+  return wixFetch(`${CPC_DATA.patchItemUrl}/${encodeURIComponent(itemId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      dataCollectionId: CPC_DATA.collections.usuarios,
+      patch: {
+        dataItemId: itemId,
+        fieldModifications: [
+          {
+            fieldPath: 'memberId',
+            action: 'SET_FIELD',
+            setFieldOptions: { value: memberId }
+          }
+        ]
+      }
+    })
+  });
 }
 
 function getData(item) {
   return item?.data || {};
+}
+
+function itemId(item) {
+  const data = getData(item);
+  return item?.id || item?._id || data._id || '';
 }
 
 function referenceId(value) {
@@ -112,27 +164,75 @@ function normalizeCourseUrl(value) {
   return value.url || value.href || '';
 }
 
-async function loadMyCourses() {
-  const memberId = await getCurrentMemberId();
-  if (!memberId) throw new Error('No fue posible identificar al miembro Wix.');
+async function resolveCpcUser(identity) {
+  const { memberId, email } = identity;
 
-  const usuarios = await queryCollection(CPC_DATA.collections.usuarios, {
+  const byMemberId = await queryCollection(CPC_DATA.collections.usuarios, {
     filter: { memberId, activo: true }
   });
 
-  const usuarioItem = usuarios[0];
+  if (byMemberId.length > 1) {
+    return { state: 'IDENTITY_CONFLICT', usuarioItem: null };
+  }
+
+  if (byMemberId.length === 1) {
+    return { state: 'OK', usuarioItem: byMemberId[0] };
+  }
+
+  if (!email) {
+    return { state: 'MEMBER_EMAIL_MISSING', usuarioItem: null };
+  }
+
+  const byEmail = await queryCollection(CPC_DATA.collections.usuarios, {
+    filter: { email, activo: true }
+  });
+
+  if (byEmail.length > 1) {
+    return { state: 'DUPLICATE_EMAIL', usuarioItem: null };
+  }
+
+  if (!byEmail.length) {
+    return { state: 'USER_NOT_REGISTERED', usuarioItem: null };
+  }
+
+  const usuarioItem = byEmail[0];
+  const usuarioData = getData(usuarioItem);
+  const linkedMemberId = String(usuarioData.memberId || '').trim();
+
+  if (linkedMemberId && linkedMemberId !== memberId) {
+    return { state: 'IDENTITY_CONFLICT', usuarioItem: null };
+  }
+
+  if (!linkedMemberId) {
+    await bindMemberIdToUser(itemId(usuarioItem), memberId);
+    usuarioData.memberId = memberId;
+  }
+
+  return { state: 'OK', usuarioItem };
+}
+
+async function loadMyCourses() {
+  const identity = await getCurrentMemberIdentity();
+  const { memberId, email } = identity;
+
+  if (!memberId) throw new Error('No fue posible identificar al miembro Wix.');
+
+  const resolution = await resolveCpcUser(identity);
+  const usuarioItem = resolution.usuarioItem;
+
   if (!usuarioItem) {
     return {
       memberId,
+      email,
       usuario: null,
       inscripciones: [],
       cursos: [],
-      state: 'USER_NOT_REGISTERED'
+      state: resolution.state
     };
   }
 
   const usuarioData = getData(usuarioItem);
-  const usuarioId = usuarioItem.id || usuarioItem._id || usuarioData._id || '';
+  const usuarioId = itemId(usuarioItem);
 
   const inscripciones = await queryCollection(CPC_DATA.collections.inscripciones, {
     filter: { usuario: usuarioId, activo: true }
@@ -141,6 +241,7 @@ async function loadMyCourses() {
   if (!inscripciones.length) {
     return {
       memberId,
+      email,
       usuario: usuarioData,
       inscripciones: [],
       cursos: [],
@@ -155,7 +256,7 @@ async function loadMyCourses() {
   const courseMap = new Map(
     cursos.map((item) => {
       const data = getData(item);
-      const id = item.id || item._id || data._id || '';
+      const id = itemId(item);
       return [id, { id, ...data }];
     })
   );
@@ -164,7 +265,7 @@ async function loadMyCourses() {
     const data = getData(item);
     const courseId = referenceId(data.curso);
     return {
-      id: item.id || item._id || data._id || '',
+      id: itemId(item),
       ...data,
       courseId,
       cursoDetalle: courseMap.get(courseId) || null
@@ -173,6 +274,7 @@ async function loadMyCourses() {
 
   return {
     memberId,
+    email,
     usuario: usuarioData,
     inscripciones: enriched,
     cursos: enriched.map((item) => item.cursoDetalle).filter(Boolean),
@@ -221,7 +323,31 @@ function renderCourseRows(result) {
     return `
       <div class="cpc-courses-empty">
         <strong>Tu cuenta Wix está conectada.</strong>
-        <p>Aún no existe un registro vinculado a este miembro en CPC.</p>
+        <p>No existe un usuario CPC activo registrado con el correo ${escapeHtml(result.email || '')}.</p>
+      </div>`;
+  }
+
+  if (result.state === 'MEMBER_EMAIL_MISSING') {
+    return `
+      <div class="cpc-courses-empty">
+        <strong>No fue posible vincular tu identidad CPC.</strong>
+        <p>La cuenta Wix autenticada no proporcionó un correo para realizar la vinculación inicial.</p>
+      </div>`;
+  }
+
+  if (result.state === 'DUPLICATE_EMAIL') {
+    return `
+      <div class="cpc-courses-error">
+        <strong>Existe una inconsistencia en tu registro CPC.</strong>
+        <p>Hay más de un usuario activo con el mismo correo. La vinculación automática fue bloqueada.</p>
+      </div>`;
+  }
+
+  if (result.state === 'IDENTITY_CONFLICT') {
+    return `
+      <div class="cpc-courses-error">
+        <strong>No fue posible validar tu identidad CPC.</strong>
+        <p>El registro está vinculado a otra identidad Wix o existen registros duplicados de memberId. Requiere revisión administrativa.</p>
       </div>`;
   }
 
@@ -308,7 +434,7 @@ document.addEventListener('click', (event) => {
 const versionObserver = new MutationObserver(() => {
   const version = document.querySelector('.version');
   if (!version) return;
-  version.textContent = 'v0.3.0 | 2026';
+  version.textContent = 'v0.3.1 | 2026';
   versionObserver.disconnect();
 });
 
