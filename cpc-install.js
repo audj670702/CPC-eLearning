@@ -1,104 +1,103 @@
-let cpcDeferredInstallPrompt = null;
+let deferredInstallPrompt = null;
+let installButtonBound = false;
 
-function isAndroidDevice() {
-  return /Android/i.test(navigator.userAgent || '');
-}
-
-function isStandaloneApp() {
-  return window.matchMedia('(display-mode: standalone)').matches ||
-    window.navigator.standalone === true;
+function isAppInstalled() {
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true
+  );
 }
 
 function getInstallButton() {
   return document.querySelector('.install-btn');
 }
 
-function syncInstallButton() {
+function renderInstallOption() {
   const button = getInstallButton();
-  if (!button || !isAndroidDevice()) return false;
+  if (!button) return false;
 
+  const installed = isAppInstalled();
+
+  // CPC renderiza el botón dentro de app.js; en móvil debe permanecer visible.
   button.style.display = 'inline-flex';
   button.style.alignItems = 'center';
-  button.style.opacity = '1';
   button.style.visibility = 'visible';
+  button.style.opacity = '1';
 
-  if (isStandaloneApp()) {
-    if (button.textContent !== 'App instalada') button.textContent = 'App instalada';
-    button.disabled = true;
-    button.setAttribute('aria-disabled', 'true');
-    return true;
-  }
+  button.textContent = installed ? 'App instalada' : 'Instalar app';
+  button.disabled = installed;
+  button.dataset.installed = installed ? 'true' : 'false';
+  button.setAttribute('aria-label', installed ? 'App instalada' : 'Instalar app');
 
-  if (button.textContent !== 'Instalar') button.textContent = 'Instalar';
-  button.disabled = false;
-  button.setAttribute('aria-disabled', 'false');
   return true;
 }
 
-async function registerCpcServiceWorker() {
-  if (!('serviceWorker' in navigator)) return null;
+async function handleInstallClick(event) {
+  const button = event.target.closest('.install-btn');
+  if (!button || isAppInstalled()) return;
+
+  if (!deferredInstallPrompt) {
+    window.alert(
+      'La instalación todavía no está disponible. Abre el menú del navegador y selecciona “Instalar app” o “Agregar a pantalla principal”.'
+    );
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = 'Instalando...';
 
   try {
-    const registration = await navigator.serviceWorker.register('/service-worker.js?v=0.3.8', {
-      scope: '/'
-    });
-    return registration;
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
   } catch (error) {
-    console.error('CPC service worker:', error);
-    return null;
+    console.error('CPC PWA install:', error);
+  } finally {
+    deferredInstallPrompt = null;
+    renderInstallOption();
   }
 }
 
-function waitForInstallButton() {
-  if (!isAndroidDevice()) return;
+function bindInstallButtonOnce() {
+  if (installButtonBound) return true;
+  const button = getInstallButton();
+  if (!button) return false;
 
-  let attempts = 0;
-  const timer = window.setInterval(() => {
-    attempts += 1;
-    const found = syncInstallButton();
-    if (found || attempts >= 40) window.clearInterval(timer);
-  }, 250);
+  installButtonBound = true;
+  renderInstallOption();
+  return true;
 }
 
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();
-  cpcDeferredInstallPrompt = event;
-  syncInstallButton();
+  deferredInstallPrompt = event;
+  renderInstallOption();
 });
 
 window.addEventListener('appinstalled', () => {
-  cpcDeferredInstallPrompt = null;
-  syncInstallButton();
+  deferredInstallPrompt = null;
+  renderInstallOption();
 });
 
-document.addEventListener('click', async (event) => {
-  const button = event.target.closest('.install-btn');
-  if (!button || !isAndroidDevice() || isStandaloneApp()) return;
+document.addEventListener('click', handleInstallClick);
 
-  if (cpcDeferredInstallPrompt) {
-    button.disabled = true;
+if (!bindInstallButtonOnce()) {
+  const observer = new MutationObserver(() => {
+    if (bindInstallButtonOnce()) observer.disconnect();
+  });
 
-    try {
-      await cpcDeferredInstallPrompt.prompt();
-      await cpcDeferredInstallPrompt.userChoice;
-    } catch (error) {
-      console.error('CPC PWA install:', error);
-    } finally {
-      cpcDeferredInstallPrompt = null;
-      syncInstallButton();
-    }
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true
+  });
+}
 
-    return;
-  }
-
-  alert('Para instalar CPC en Android, abre el menú ⋮ de Chrome y selecciona “Instalar app” o “Agregar a pantalla principal”.');
-});
-
-document.addEventListener('DOMContentLoaded', waitForInstallButton, { once: true });
-
-window.addEventListener('load', async () => {
-  registerCpcServiceWorker();
-  waitForInstallButton();
-}, { once: true });
-
-waitForInstallButton();
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('./service-worker.js', { updateViaCache: 'none' })
+      .then((registration) => registration.update())
+      .catch((error) => {
+        console.error('No fue posible registrar la PWA CPC:', error);
+      });
+  });
+}
