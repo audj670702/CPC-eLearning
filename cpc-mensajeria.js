@@ -12,6 +12,7 @@ const sounds = {
 Object.values(sounds).forEach((audio) => { audio.preload = 'auto'; });
 
 let activeConversation = null;
+let inboxConversations = [];
 let previousPending = null;
 let pendingSoundBlocked = false;
 let pollTimer = null;
@@ -73,6 +74,10 @@ function escapeHtml(value) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
+}
+
+function normalize(value) {
+  return String(value || '').trim().toLocaleLowerCase('es-MX');
 }
 
 function formatDate(value, withTime = false) {
@@ -154,12 +159,13 @@ function ensureModal() {
         <section class="cpc-msg-sidebar">
           <div class="cpc-msg-top"><strong>Mensajería</strong><button id="cpcMsgClose" class="cpc-msg-close" type="button" aria-label="Cerrar">×</button></div>
           <div class="cpc-msg-shortcuts">
-            <button id="cpcMsgAdmin" class="cpc-msg-shortcut primary" type="button">Administración CPC</button>
-            <button id="cpcMsgNew" class="cpc-msg-shortcut" type="button">Nuevo mensaje</button>
+            <button id="cpcMsgSystem" class="cpc-msg-shortcut" type="button">⚙️ SISTEMA</button>
+            <button id="cpcMsgAdmin" class="cpc-msg-shortcut primary" type="button">👨🏻‍💼 ATENCIÓN</button>
+            <button id="cpcMsgContacts" class="cpc-msg-shortcut" type="button">👥 CONTACTOS</button>
           </div>
           <div id="cpcMsgSearch" class="cpc-msg-search" hidden>
-            <input id="cpcMsgSearchInput" type="search" placeholder="Buscar usuario CPC" autocomplete="off">
-            <div id="cpcMsgSearchResults" class="cpc-msg-search-results"></div>
+            <input id="cpcMsgSearchInput" type="search" placeholder="Nombre completo o correo exacto" autocomplete="off">
+            <div id="cpcMsgSearchResults" class="cpc-msg-search-results"><div class="cpc-msg-empty">Escribe el nombre completo o correo exacto.</div></div>
           </div>
           <div id="cpcMsgList" class="cpc-msg-list"><div class="cpc-msg-empty">Cargando conversaciones…</div></div>
         </section>
@@ -186,10 +192,16 @@ function ensureModal() {
   document.getElementById('cpcMsgBack')?.addEventListener('click', () => {
     document.getElementById('cpcMsgShell')?.classList.remove('thread-open');
   });
+  document.getElementById('cpcMsgSystem')?.addEventListener('click', openSystem);
   document.getElementById('cpcMsgAdmin')?.addEventListener('click', openAdministration);
-  document.getElementById('cpcMsgNew')?.addEventListener('click', toggleSearch);
+  document.getElementById('cpcMsgContacts')?.addEventListener('click', openContacts);
   document.getElementById('cpcMsgSearchInput')?.addEventListener('input', scheduleUserSearch);
   document.getElementById('cpcMsgComposer')?.addEventListener('submit', sendMessage);
+}
+
+function setShortcutActive(id) {
+  document.querySelectorAll('.cpc-msg-shortcut').forEach((button) => button.classList.remove('primary'));
+  document.getElementById(id)?.classList.add('primary');
 }
 
 async function openMessaging() {
@@ -202,6 +214,7 @@ async function openMessaging() {
   modal.hidden = false;
   document.body.classList.add('modal-open');
   await loadInbox();
+  await openAdministration();
 }
 
 function closeMessaging() {
@@ -236,7 +249,8 @@ async function loadInbox() {
   if (list) list.innerHTML = '<div class="cpc-msg-empty">Cargando conversaciones…</div>';
   try {
     const data = await api('cpcMensajeriaBandeja');
-    renderInbox(data.conversations || []);
+    inboxConversations = data.conversations || [];
+    renderInbox(inboxConversations);
     previousPending = Number(data.totalNoLeidos || 0);
     updateBadge(previousPending);
   } catch (error) {
@@ -245,43 +259,80 @@ async function loadInbox() {
 }
 
 async function openAdministration() {
+  setShortcutActive('cpcMsgAdmin');
+  document.getElementById('cpcMsgSearch')?.setAttribute('hidden', '');
   try {
     const data = await api('cpcMensajeriaAdministracion', { method: 'POST', body: '{}' });
     await loadInbox();
-    await openThread(data.conversationId);
+    await openThread(data.conversationId, { forceName: 'ATENCIÓN AL USUARIO' });
   } catch (error) {
     window.alert(error.message);
   }
 }
 
-function toggleSearch() {
-  const box = document.getElementById('cpcMsgSearch');
-  if (!box) return;
-  box.hidden = !box.hidden;
-  if (!box.hidden) {
-    const input = document.getElementById('cpcMsgSearchInput');
-    input?.focus();
-    searchUsers(input?.value || '');
+async function openSystem() {
+  setShortcutActive('cpcMsgSystem');
+  document.getElementById('cpcMsgSearch')?.setAttribute('hidden', '');
+  const systemConversation = inboxConversations.find((item) => String(item.tipoConversacion || '').toUpperCase() === 'SISTEMA');
+  if (systemConversation?.conversationId) {
+    await openThread(systemConversation.conversationId, { forceName: 'SISTEMA' });
+    return;
   }
+
+  activeConversation = { tipoConversacion: 'SISTEMA', permiteRespuesta: false };
+  document.getElementById('cpcMsgThreadName').textContent = 'SISTEMA';
+  document.getElementById('cpcMsgThreadType').textContent = 'Avisos del sistema';
+  document.getElementById('cpcMsgMessages').innerHTML = '<div class="cpc-msg-placeholder">Aún no hay avisos del sistema.</div>';
+  document.getElementById('cpcMsgComposer').hidden = true;
+  document.getElementById('cpcMsgReadonly').hidden = false;
+  document.getElementById('cpcMsgShell')?.classList.add('thread-open');
+}
+
+function openContacts() {
+  setShortcutActive('cpcMsgContacts');
+  const box = document.getElementById('cpcMsgSearch');
+  const input = document.getElementById('cpcMsgSearchInput');
+  const results = document.getElementById('cpcMsgSearchResults');
+  if (!box || !input || !results) return;
+  box.hidden = false;
+  input.value = '';
+  results.innerHTML = '<div class="cpc-msg-empty">Escribe el nombre completo o correo exacto.</div>';
+  input.focus();
 }
 
 function scheduleUserSearch(event) {
   window.clearTimeout(searchTimer);
-  searchTimer = window.setTimeout(() => searchUsers(event.target.value), 250);
+  const term = String(event.target.value || '').trim();
+  const results = document.getElementById('cpcMsgSearchResults');
+  if (!term) {
+    if (results) results.innerHTML = '<div class="cpc-msg-empty">Escribe el nombre completo o correo exacto.</div>';
+    return;
+  }
+  searchTimer = window.setTimeout(() => searchUsers(term), 300);
 }
 
 async function searchUsers(term) {
   const results = document.getElementById('cpcMsgSearchResults');
   if (!results) return;
-  results.innerHTML = '<div class="cpc-msg-empty">Buscando…</div>';
+  const exactTerm = normalize(term);
+  if (!exactTerm) {
+    results.innerHTML = '<div class="cpc-msg-empty">Escribe el nombre completo o correo exacto.</div>';
+    return;
+  }
+
+  results.innerHTML = '<div class="cpc-msg-empty">Buscando coincidencia exacta…</div>';
   try {
     const data = await api(`cpcMensajeriaUsuarios?q=${encodeURIComponent(String(term || '').trim())}`);
-    const users = data.users || [];
-    results.innerHTML = users.length ? users.map((user) => `
+    const exactUsers = (data.users || []).filter((user) =>
+      normalize(user.nombreCompleto) === exactTerm || normalize(user.email) === exactTerm
+    ).slice(0, 1);
+
+    results.innerHTML = exactUsers.length ? exactUsers.map((user) => `
       <button class="cpc-msg-user" type="button" data-member-id="${escapeHtml(user.memberId)}">
         <strong>${escapeHtml(user.nombreCompleto || 'Usuario CPC')}</strong>
         <small>${escapeHtml(user.email || '')}</small>
-      </button>`).join('') : '<div class="cpc-msg-empty">No se encontraron usuarios.</div>';
+      </button>`).join('') : '<div class="cpc-msg-empty">No existe una coincidencia exacta.</div>';
+
     results.querySelectorAll('.cpc-msg-user').forEach((button) => {
       button.addEventListener('click', () => createDirectConversation(button.dataset.memberId));
     });
@@ -328,20 +379,19 @@ function renderMessages(messages = []) {
   container.scrollTop = container.scrollHeight;
 }
 
-async function openThread(conversationId) {
+async function openThread(conversationId, options = {}) {
   if (!conversationId) return;
   try {
     const data = await api(`cpcMensajeriaMensajes?conversationId=${encodeURIComponent(conversationId)}`);
     activeConversation = data.conversation || { conversationId };
 
-    // El memberId actual se obtiene sólo para representar visualmente mensajes propios.
     const memberData = await fetch('https://www.wixapis.com/members/v1/members/my?fieldSet=BASIC', {
       headers: { Authorization: await getAccessToken() }, cache: 'no-store'
     }).then((r) => r.ok ? r.json() : null).catch(() => null);
     activeConversation.currentMemberId = memberData?.member?.id || '';
 
-    document.getElementById('cpcMsgThreadName').textContent = activeConversation.nombre || 'Conversación';
-    document.getElementById('cpcMsgThreadType').textContent = activeConversation.tipoConversacion === 'SISTEMA' ? 'Aviso del sistema' : '';
+    document.getElementById('cpcMsgThreadName').textContent = options.forceName || activeConversation.nombre || 'Conversación';
+    document.getElementById('cpcMsgThreadType').textContent = activeConversation.tipoConversacion === 'SISTEMA' ? 'Avisos del sistema' : '';
     renderMessages(data.messages || []);
 
     const composer = document.getElementById('cpcMsgComposer');
