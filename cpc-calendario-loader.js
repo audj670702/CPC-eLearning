@@ -16,7 +16,7 @@
     loading = true;
 
     try {
-      await import('./cpc-calendario.js?v=0.3.1');
+      await import('./cpc-calendario.js?v=0.3.5');
       loaded = true;
       loading = false;
       card.click();
