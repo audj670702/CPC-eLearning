@@ -123,9 +123,7 @@ function calVisibleForUser(eventData, context) {
   const destinatarioId = calClean(eventData.destinatarioId);
   const cursoId = calRef(eventData.cursoId || eventData.curso);
 
-  // Las clases se autorizan exclusivamente por inscripción al curso.
   if (tipo === 'CLASE') return Boolean(cursoId && context.courseIds.has(cursoId));
-
   if (destinatarioTipo === 'TODOS') return true;
   if (destinatarioTipo === 'CURSO') {
     return Boolean((cursoId && context.courseIds.has(cursoId)) || context.courseKeys.has(destinatarioId));
@@ -133,8 +131,6 @@ function calVisibleForUser(eventData, context) {
   if (destinatarioTipo === 'USUARIO') {
     return [context.usuarioId, context.codigoUsuario, context.memberId].filter(Boolean).includes(destinatarioId);
   }
-
-  // GRUPO permanece cerrado hasta que exista una relación de grupos definida.
   return false;
 }
 
@@ -273,6 +269,7 @@ document.addEventListener('click', event => {
 const calVersionObserver = new MutationObserver(() => {
   const version = document.querySelector('.version');
   if (!version) return;
-  version.textContent = 'v0.3.2 | 2026';
+  version.textContent = 'v0.3.3 | 2026';
+  calVersionObserver.disconnect();
 });
 calVersionObserver.observe(document.documentElement, { childList: true, subtree: true });
