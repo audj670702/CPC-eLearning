@@ -3,377 +3,181 @@ const CPC_DATA = {
   queryUrl: 'https://www.wixapis.com/wix-data/v2/items/query',
   patchItemUrl: 'https://www.wixapis.com/data/v2/items',
   memberUrl: 'https://www.wixapis.com/members/v1/members/my?fieldSet=FULL',
-  collections: {
-    usuarios: 'CPC_Usuario',
-    inscripciones: 'CPC_Inscripciones',
-    cursos: 'CPC_Cursos'
-  }
+  collections: { usuarios: 'CPC_Usuario', inscripciones: 'CPC_Inscripciones', cursos: 'CPC_Cursos' }
 };
 
 function readAccessToken() {
-  try {
-    const stored = JSON.parse(localStorage.getItem(CPC_DATA.tokenStorageKey) || 'null');
-    return stored?.accessToken?.value || '';
-  } catch {
-    return '';
-  }
+  try { return JSON.parse(localStorage.getItem(CPC_DATA.tokenStorageKey) || 'null')?.accessToken?.value || ''; }
+  catch { return ''; }
 }
 
 async function wixFetch(url, options = {}) {
   const accessToken = readAccessToken();
-  if (!accessToken) {
-    const error = new Error('AUTH_REQUIRED');
-    error.code = 'AUTH_REQUIRED';
-    throw error;
-  }
-
+  if (!accessToken) { const error = new Error('AUTH_REQUIRED'); error.code = 'AUTH_REQUIRED'; throw error; }
   const response = await fetch(url, {
     ...options,
-    headers: {
-      Authorization: accessToken,
-      'Content-Type': 'application/json',
-      ...(options.headers || {})
-    }
+    headers: { Authorization: accessToken, 'Content-Type': 'application/json', ...(options.headers || {}) }
   });
-
-  if (response.status === 401 || response.status === 403) {
-    const error = new Error('AUTH_REQUIRED');
-    error.code = 'AUTH_REQUIRED';
-    throw error;
-  }
-
-  if (!response.ok) {
-    let detail = '';
-    try {
-      detail = JSON.stringify(await response.json());
-    } catch {
-      detail = await response.text().catch(() => '');
-    }
-    throw new Error(`Wix API ${response.status}${detail ? `: ${detail}` : ''}`);
-  }
-
+  if (response.status === 401 || response.status === 403) { const error = new Error('AUTH_REQUIRED'); error.code = 'AUTH_REQUIRED'; throw error; }
+  if (!response.ok) throw new Error(`Wix API ${response.status}`);
   return response.json();
 }
 
 async function queryCollection(dataCollectionId, query = {}) {
-  const payload = {
-    dataCollectionId,
-    query: {
-      paging: { limit: 100 },
-      ...query
-    }
-  };
-
   const result = await wixFetch(CPC_DATA.queryUrl, {
     method: 'POST',
-    body: JSON.stringify(payload)
+    body: JSON.stringify({ dataCollectionId, query: { paging: { limit: 100 }, ...query } })
   });
-
   return result.dataItems || [];
 }
 
-function normalizeEmail(value) {
-  return String(value || '').trim().toLowerCase();
+const getData = item => item?.data || {};
+const itemId = item => item?.id || item?._id || getData(item)._id || '';
+const referenceId = value => typeof value === 'string' ? value : (value?._id || value?.id || value?.value || '');
+const normalizeEmail = value => String(value || '').trim().toLowerCase();
+
+function escapeHtml(value) {
+  return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+}
+
+function formatDate(value) {
+  if (!value) return '';
+  const raw = typeof value === 'object' && value.$date ? value.$date : value;
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+}
+
+function normalizeCourseUrl(value) {
+  if (!value) return '';
+  return typeof value === 'string' ? value : (value.url || value.href || '');
 }
 
 function extractMemberEmail(member) {
-  const candidates = [
-    member?.loginEmail,
-    member?.contactDetails?.emails?.[0],
-    member?.contact?.emails?.[0]
-  ];
-
+  const candidates = [member?.loginEmail, member?.contactDetails?.emails?.[0], member?.contact?.emails?.[0]];
   for (const candidate of candidates) {
     if (!candidate) continue;
     if (typeof candidate === 'string') return normalizeEmail(candidate);
     const value = candidate.email || candidate.value || candidate.address || '';
     if (value) return normalizeEmail(value);
   }
-
   return '';
 }
 
 async function getCurrentMemberIdentity() {
   const result = await wixFetch(CPC_DATA.memberUrl);
   const member = result.member || {};
-  return {
-    memberId: member.id || '',
-    email: extractMemberEmail(member)
-  };
+  return { memberId: member.id || '', email: extractMemberEmail(member) };
 }
 
-async function bindMemberIdToUser(itemId, memberId) {
-  if (!itemId || !memberId) throw new Error('No fue posible completar la vinculación de identidad CPC.');
-
-  return wixFetch(`${CPC_DATA.patchItemUrl}/${encodeURIComponent(itemId)}`, {
+async function bindMemberIdToUser(itemIdValue, memberId) {
+  return wixFetch(`${CPC_DATA.patchItemUrl}/${encodeURIComponent(itemIdValue)}`, {
     method: 'PATCH',
     body: JSON.stringify({
       dataCollectionId: CPC_DATA.collections.usuarios,
       patch: {
-        dataItemId: itemId,
-        fieldModifications: [
-          {
-            fieldPath: 'memberId',
-            action: 'SET_FIELD',
-            setFieldOptions: { value: memberId }
-          }
-        ]
+        dataItemId: itemIdValue,
+        fieldModifications: [{ fieldPath: 'memberId', action: 'SET_FIELD', setFieldOptions: { value: memberId } }]
       }
     })
   });
 }
 
-function getData(item) {
-  return item?.data || {};
-}
-
-function itemId(item) {
-  const data = getData(item);
-  return item?.id || item?._id || data._id || '';
-}
-
-function referenceId(value) {
-  if (!value) return '';
-  if (typeof value === 'string') return value;
-  return value._id || value.id || value.value || '';
-}
-
-function formatDate(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('es-MX', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  }).format(date);
-}
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
-}
-
-function normalizeCourseUrl(value) {
-  if (!value) return '';
-  if (typeof value === 'string') return value;
-  return value.url || value.href || '';
-}
-
 async function resolveCpcUser(identity) {
-  const { memberId, email } = identity;
+  const byMemberId = await queryCollection(CPC_DATA.collections.usuarios, { filter: { memberId: identity.memberId, activo: true } });
+  if (byMemberId.length > 1) return { state: 'IDENTITY_CONFLICT', usuarioItem: null };
+  if (byMemberId.length === 1) return { state: 'OK', usuarioItem: byMemberId[0] };
+  if (!identity.email) return { state: 'MEMBER_EMAIL_MISSING', usuarioItem: null };
 
-  const byMemberId = await queryCollection(CPC_DATA.collections.usuarios, {
-    filter: { memberId, activo: true }
-  });
-
-  if (byMemberId.length > 1) {
-    return { state: 'IDENTITY_CONFLICT', usuarioItem: null };
-  }
-
-  if (byMemberId.length === 1) {
-    return { state: 'OK', usuarioItem: byMemberId[0] };
-  }
-
-  if (!email) {
-    return { state: 'MEMBER_EMAIL_MISSING', usuarioItem: null };
-  }
-
-  const byEmail = await queryCollection(CPC_DATA.collections.usuarios, {
-    filter: { email, activo: true }
-  });
-
-  if (byEmail.length > 1) {
-    return { state: 'DUPLICATE_EMAIL', usuarioItem: null };
-  }
-
-  if (!byEmail.length) {
-    return { state: 'USER_NOT_REGISTERED', usuarioItem: null };
-  }
+  const byEmail = await queryCollection(CPC_DATA.collections.usuarios, { filter: { email: identity.email, activo: true } });
+  if (byEmail.length > 1) return { state: 'DUPLICATE_EMAIL', usuarioItem: null };
+  if (!byEmail.length) return { state: 'USER_NOT_REGISTERED', usuarioItem: null };
 
   const usuarioItem = byEmail[0];
   const usuarioData = getData(usuarioItem);
   const linkedMemberId = String(usuarioData.memberId || '').trim();
-
-  if (linkedMemberId && linkedMemberId !== memberId) {
-    return { state: 'IDENTITY_CONFLICT', usuarioItem: null };
-  }
-
+  if (linkedMemberId && linkedMemberId !== identity.memberId) return { state: 'IDENTITY_CONFLICT', usuarioItem: null };
   if (!linkedMemberId) {
-    await bindMemberIdToUser(itemId(usuarioItem), memberId);
-    usuarioData.memberId = memberId;
+    await bindMemberIdToUser(itemId(usuarioItem), identity.memberId);
+    usuarioData.memberId = identity.memberId;
   }
-
   return { state: 'OK', usuarioItem };
 }
 
 async function loadMyCourses() {
   const identity = await getCurrentMemberIdentity();
-  const { memberId, email } = identity;
-
-  if (!memberId) throw new Error('No fue posible identificar al miembro Wix.');
-
+  if (!identity.memberId) throw new Error('No fue posible identificar al miembro Wix.');
   const resolution = await resolveCpcUser(identity);
-  const usuarioItem = resolution.usuarioItem;
+  if (!resolution.usuarioItem) return { ...identity, usuario: null, inscripciones: [], state: resolution.state };
 
-  if (!usuarioItem) {
-    return {
-      memberId,
-      email,
-      usuario: null,
-      inscripciones: [],
-      cursos: [],
-      state: resolution.state
-    };
-  }
+  const usuario = getData(resolution.usuarioItem);
+  const usuarioId = itemId(resolution.usuarioItem);
+  const inscripciones = await queryCollection(CPC_DATA.collections.inscripciones, { filter: { usuario: usuarioId, activo: true } });
+  if (!inscripciones.length) return { ...identity, usuario, inscripciones: [], state: 'NO_ENROLLMENTS' };
 
-  const usuarioData = getData(usuarioItem);
-  const usuarioId = itemId(usuarioItem);
+  const cursos = await queryCollection(CPC_DATA.collections.cursos, { filter: { activo: true } });
+  const courseMap = new Map(cursos.map(item => {
+    const data = getData(item);
+    const id = itemId(item);
+    return [id, { id, ...data }];
+  }));
 
-  const inscripciones = await queryCollection(CPC_DATA.collections.inscripciones, {
-    filter: { usuario: usuarioId, activo: true }
-  });
-
-  if (!inscripciones.length) {
-    return {
-      memberId,
-      email,
-      usuario: usuarioData,
-      inscripciones: [],
-      cursos: [],
-      state: 'NO_ENROLLMENTS'
-    };
-  }
-
-  const cursos = await queryCollection(CPC_DATA.collections.cursos, {
-    filter: { activo: true }
-  });
-
-  const courseMap = new Map(
-    cursos.map((item) => {
-      const data = getData(item);
-      const id = itemId(item);
-      return [id, { id, ...data }];
-    })
-  );
-
-  const enriched = inscripciones.map((item) => {
+  const enriched = inscripciones.map(item => {
     const data = getData(item);
     const courseId = referenceId(data.curso);
+    const cursoDetalle = courseMap.get(courseId) || null;
     return {
       id: itemId(item),
       ...data,
       courseId,
-      cursoDetalle: courseMap.get(courseId) || null
+      codigoCurso: cursoDetalle?.codigoCurso || '',
+      cursoDetalle
     };
   });
 
-  return {
-    memberId,
-    email,
-    usuario: usuarioData,
-    inscripciones: enriched,
-    cursos: enriched.map((item) => item.cursoDetalle).filter(Boolean),
-    state: 'OK'
-  };
+  return { ...identity, usuario, inscripciones: enriched, state: 'OK' };
 }
 
 function ensureCoursesModal() {
   let modal = document.getElementById('cpcCoursesModal');
   if (modal) return modal;
-
   modal = document.createElement('div');
   modal.id = 'cpcCoursesModal';
   modal.className = 'cpc-courses-modal';
   modal.hidden = true;
   modal.innerHTML = `
     <section class="cpc-courses-panel" role="dialog" aria-modal="true" aria-labelledby="cpcCoursesTitle">
-      <header class="cpc-courses-topbar">
-        <div>
-          <strong id="cpcCoursesTitle">Mis cursos</strong>
-          <small>Inscripciones CPC</small>
-        </div>
-        <button class="cpc-courses-close" type="button" aria-label="Cerrar">×</button>
-      </header>
+      <header class="cpc-courses-topbar"><div><strong id="cpcCoursesTitle">Mis cursos</strong><small>Inscripciones CPC</small></div><button class="cpc-courses-close" type="button" aria-label="Cerrar">×</button></header>
       <div class="cpc-courses-body" data-cpc-courses-body></div>
-    </section>
-  `;
-
+    </section>`;
   document.body.appendChild(modal);
-
-  const close = () => {
-    modal.hidden = true;
-    document.body.classList.remove('modal-open');
-  };
-
-  modal.querySelector('.cpc-courses-close')?.addEventListener('click', close);
-  modal.addEventListener('click', (event) => {
-    if (event.target === modal) close();
-  });
-
+  const close = () => { modal.hidden = true; document.body.classList.remove('modal-open'); };
+  modal.querySelector('.cpc-courses-close').addEventListener('click', close);
+  modal.addEventListener('click', event => { if (event.target === modal) close(); });
   return modal;
 }
 
 function renderCourseRows(result) {
-  if (result.state === 'USER_NOT_REGISTERED') {
-    return `
-      <div class="cpc-courses-empty">
-        <strong>Tu cuenta Wix está conectada.</strong>
-        <p>No existe un usuario CPC activo registrado con el correo ${escapeHtml(result.email || '')}.</p>
-      </div>`;
-  }
+  if (result.state === 'USER_NOT_REGISTERED') return `<div class="cpc-courses-empty"><strong>Tu cuenta Wix está conectada.</strong><p>No existe un usuario CPC activo registrado con el correo ${escapeHtml(result.email || '')}.</p></div>`;
+  if (result.state === 'MEMBER_EMAIL_MISSING') return '<div class="cpc-courses-empty"><strong>No fue posible vincular tu identidad CPC.</strong></div>';
+  if (result.state === 'DUPLICATE_EMAIL' || result.state === 'IDENTITY_CONFLICT') return '<div class="cpc-courses-error"><strong>Existe una inconsistencia en tu registro CPC.</strong><p>Requiere revisión administrativa.</p></div>';
+  if (result.state === 'NO_ENROLLMENTS') return '<div class="cpc-courses-empty"><strong>No tienes cursos asignados.</strong><p>Cuando exista una inscripción activa aparecerá aquí automáticamente.</p></div>';
 
-  if (result.state === 'MEMBER_EMAIL_MISSING') {
-    return `
-      <div class="cpc-courses-empty">
-        <strong>No fue posible vincular tu identidad CPC.</strong>
-        <p>La cuenta Wix autenticada no proporcionó un correo para realizar la vinculación inicial.</p>
-      </div>`;
-  }
-
-  if (result.state === 'DUPLICATE_EMAIL') {
-    return `
-      <div class="cpc-courses-error">
-        <strong>Existe una inconsistencia en tu registro CPC.</strong>
-        <p>Hay más de un usuario activo con el mismo correo. La vinculación automática fue bloqueada.</p>
-      </div>`;
-  }
-
-  if (result.state === 'IDENTITY_CONFLICT') {
-    return `
-      <div class="cpc-courses-error">
-        <strong>No fue posible validar tu identidad CPC.</strong>
-        <p>El registro está vinculado a otra identidad Wix o existen registros duplicados de memberId. Requiere revisión administrativa.</p>
-      </div>`;
-  }
-
-  if (result.state === 'NO_ENROLLMENTS') {
-    return `
-      <div class="cpc-courses-empty">
-        <strong>No tienes cursos asignados.</strong>
-        <p>Cuando exista una inscripción activa aparecerá aquí automáticamente.</p>
-      </div>`;
-  }
-
-  const rows = result.inscripciones.map((inscripcion) => {
+  const rows = result.inscripciones.map(inscripcion => {
     const curso = inscripcion.cursoDetalle;
     if (!curso) return '';
-
+    const code = curso.codigoCurso || 'Sin código';
     const start = formatDate(curso.fechaInicio);
     const end = formatDate(curso.fechaFin);
     const dateText = start && end ? `${start} — ${end}` : start || end || '';
     const url = normalizeCourseUrl(curso.urlCurso);
     const status = inscripcion.estatus || curso.estatus || 'Inscrito';
-
     return `
       <article class="cpc-course-row">
         <div class="cpc-course-main">
           <span class="cpc-course-status">${escapeHtml(status)}</span>
-          <strong>${escapeHtml(curso.nombreCurso || curso.title || curso.codigoCurso || 'Curso CPC')}</strong>
+          <strong>${escapeHtml(code)}</strong>
+          <p>${escapeHtml(curso.nombreCurso || 'Curso CPC')}</p>
           ${curso.descripcionCorta ? `<p>${escapeHtml(curso.descripcionCorta)}</p>` : ''}
           ${dateText ? `<small>${escapeHtml(dateText)}</small>` : ''}
         </div>
@@ -381,50 +185,31 @@ function renderCourseRows(result) {
       </article>`;
   }).filter(Boolean).join('');
 
-  if (rows) return rows;
-
-  return `
-    <div class="cpc-courses-empty">
-      <strong>Tienes inscripciones activas, pero no fue posible vincular sus cursos.</strong>
-      <p>Revisa las referencias de CPC_Inscripciones.curso.</p>
-    </div>`;
+  return rows || '<div class="cpc-courses-empty"><strong>Tienes inscripciones activas, pero no fue posible vincular sus cursos.</strong></div>';
 }
 
 async function openMyCourses() {
   const modal = ensureCoursesModal();
   const body = modal.querySelector('[data-cpc-courses-body]');
-
   modal.hidden = false;
   document.body.classList.add('modal-open');
   body.innerHTML = '<div class="cpc-courses-loading">Cargando cursos…</div>';
-
   try {
-    const result = await loadMyCourses();
-    body.innerHTML = renderCourseRows(result);
+    body.innerHTML = renderCourseRows(await loadMyCourses());
   } catch (error) {
     console.error('CPC cursos:', error);
-
     if (error?.code === 'AUTH_REQUIRED' || error?.message === 'AUTH_REQUIRED') {
       modal.hidden = true;
       document.body.classList.remove('modal-open');
       const loginButton = document.querySelector('.session-btn');
-      if (loginButton) {
-        loginButton.click();
-      } else {
-        alert('Inicia sesión para consultar tus cursos.');
-      }
+      if (loginButton) loginButton.click(); else alert('Inicia sesión para consultar tus cursos.');
       return;
     }
-
-    body.innerHTML = `
-      <div class="cpc-courses-error">
-        <strong>No fue posible cargar tus cursos.</strong>
-        <p>${escapeHtml(error?.message || 'Error de conexión con CPC.')}</p>
-      </div>`;
+    body.innerHTML = `<div class="cpc-courses-error"><strong>No fue posible cargar tus cursos.</strong><p>${escapeHtml(error?.message || 'Error de conexión con CPC.')}</p></div>`;
   }
 }
 
-document.addEventListener('click', (event) => {
+document.addEventListener('click', event => {
   const link = event.target.closest('a.module-card[href*="/mis-cursos"]');
   if (!link) return;
   event.preventDefault();
@@ -434,8 +219,7 @@ document.addEventListener('click', (event) => {
 const versionObserver = new MutationObserver(() => {
   const version = document.querySelector('.version');
   if (!version) return;
-  version.textContent = 'v0.3.5 | 2026';
+  version.textContent = 'v0.3.7 | 2026';
   versionObserver.disconnect();
 });
-
 versionObserver.observe(document.documentElement, { childList: true, subtree: true });
