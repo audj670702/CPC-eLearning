@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = 'v0.3.6 | 2026';
+  const VERSION = 'v0.3.7 | 2026';
   let loading = false;
   let loaded = false;
 
@@ -20,18 +20,16 @@
   document.addEventListener('click', async (event) => {
     const card = event.target.closest('.module-card');
     if (!card) return;
-
     const title = card.querySelector('.module-copy strong')?.textContent?.trim().toUpperCase();
     if (title !== 'CALENDARIO' || loaded) return;
 
     event.preventDefault();
     event.stopImmediatePropagation();
-
     if (loading) return;
     loading = true;
 
     try {
-      await import('./cpc-calendario.js?v=0.3.6');
+      await import('./cpc-calendario.js?v=0.3.7');
       loaded = true;
       loading = false;
       card.click();
