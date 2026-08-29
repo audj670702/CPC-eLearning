@@ -15,26 +15,24 @@ function getInstallButton() {
 
 function syncInstallButton() {
   const button = getInstallButton();
-  if (!button) return;
+  if (!button || !isAndroidDevice()) return false;
 
-  if (!isAndroidDevice()) return;
-
-  // En Android el acceso a instalación siempre debe permanecer visible.
   button.style.display = 'inline-flex';
   button.style.alignItems = 'center';
   button.style.opacity = '1';
   button.style.visibility = 'visible';
 
   if (isStandaloneApp()) {
-    button.textContent = 'App instalada';
+    if (button.textContent !== 'App instalada') button.textContent = 'App instalada';
     button.disabled = true;
     button.setAttribute('aria-disabled', 'true');
-    return;
+    return true;
   }
 
-  button.textContent = 'Instalar';
+  if (button.textContent !== 'Instalar') button.textContent = 'Instalar';
   button.disabled = false;
   button.setAttribute('aria-disabled', 'false');
+  return true;
 }
 
 async function registerCpcServiceWorker() {
@@ -44,12 +42,22 @@ async function registerCpcServiceWorker() {
     const registration = await navigator.serviceWorker.register('/service-worker.js?v=0.3.8', {
       scope: '/'
     });
-    await registration.update().catch(() => {});
     return registration;
   } catch (error) {
     console.error('CPC service worker:', error);
     return null;
   }
+}
+
+function waitForInstallButton() {
+  if (!isAndroidDevice()) return;
+
+  let attempts = 0;
+  const timer = window.setInterval(() => {
+    attempts += 1;
+    const found = syncInstallButton();
+    if (found || attempts >= 40) window.clearInterval(timer);
+  }, 250);
 }
 
 window.addEventListener('beforeinstallprompt', (event) => {
@@ -83,23 +91,14 @@ document.addEventListener('click', async (event) => {
     return;
   }
 
-  await registerCpcServiceWorker();
-
   alert('Para instalar CPC en Android, abre el menú ⋮ de Chrome y selecciona “Instalar app” o “Agregar a pantalla principal”.');
 });
 
-const cpcInstallObserver = new MutationObserver(() => {
-  if (getInstallButton()) syncInstallButton();
-});
-
-cpcInstallObserver.observe(document.documentElement, {
-  childList: true,
-  subtree: true
-});
+document.addEventListener('DOMContentLoaded', waitForInstallButton, { once: true });
 
 window.addEventListener('load', async () => {
-  await registerCpcServiceWorker();
-  syncInstallButton();
-});
+  registerCpcServiceWorker();
+  waitForInstallButton();
+}, { once: true });
 
-syncInstallButton();
+waitForInstallButton();
