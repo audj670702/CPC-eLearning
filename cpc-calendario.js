@@ -46,6 +46,13 @@ const calRef = value => typeof value === 'string' ? value : (value?._id || value
 const calClean = value => String(value ?? '').trim();
 const calEmail = value => calClean(value).toLowerCase();
 
+function calDateValue(value) {
+  if (!value) return null;
+  const raw = typeof value === 'object' && value.$date ? value.$date : value;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 function calEscape(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
@@ -105,7 +112,10 @@ function calVisibleForUser(eventData, context) {
   if (tipo === 'CLASE') return Boolean(cursoId && context.courseIds.has(cursoId));
   if (destinatarioTipo === 'TODOS') return true;
   if (destinatarioTipo === 'CURSO') {
-    return Boolean((cursoId && context.courseIds.has(cursoId)) || context.courseKeys.has(destinatarioId));
+    return Boolean(
+      (cursoId && context.courseIds.has(cursoId)) ||
+      context.courseCodes.has(destinatarioId)
+    );
   }
   if (destinatarioTipo === 'USUARIO') {
     return [context.usuarioId, context.codigoUsuario, context.memberId].filter(Boolean).includes(destinatarioId);
@@ -121,16 +131,18 @@ async function loadCalendarForCurrentUser() {
   const usuarioId = calItemId(userItem);
   const usuario = calData(userItem);
   const inscripciones = await calQuery(CPC_CAL.collections.inscripciones, { filter: { usuario: usuarioId, activo: true } });
-  const courseIds = new Set(inscripciones.map(i => calRef(calData(i).curso)).filter(Boolean));
+  const enrolledCourseIds = new Set(inscripciones.map(i => calRef(calData(i).curso)).filter(Boolean));
 
   const cursos = await calQuery(CPC_CAL.collections.cursos, { filter: { activo: true } });
   const courseMap = new Map();
-  const courseKeys = new Set();
+  const courseCodes = new Set();
+
   cursos.forEach(item => {
     const d = calData(item);
     const id = calItemId(item);
-    courseMap.set(id, { id, ...d });
-    if (courseIds.has(id)) [id, d.codigoCurso, d.registroCurso].filter(Boolean).forEach(v => courseKeys.add(calClean(v)));
+    const course = { id, ...d };
+    courseMap.set(id, course);
+    if (enrolledCourseIds.has(id) && d.codigoCurso) courseCodes.add(calClean(d.codigoCurso));
   });
 
   const eventos = await calQuery(CPC_CAL.collections.calendario, { filter: { activo: true } });
@@ -138,15 +150,21 @@ async function loadCalendarForCurrentUser() {
     usuarioId,
     codigoUsuario: calClean(usuario.codigoUsuario),
     memberId: identity.memberId,
-    courseIds,
-    courseKeys
+    courseIds: enrolledCourseIds,
+    courseCodes
   };
 
   const visible = eventos
     .map(item => ({ id: calItemId(item), ...calData(item) }))
     .filter(ev => calVisibleForUser(ev, context))
-    .map(ev => ({ ...ev, cursoDetalle: courseMap.get(calRef(ev.cursoId || ev.curso)) || null }))
-    .sort((a, b) => new Date(a.fechaInicio || 0) - new Date(b.fechaInicio || 0));
+    .map(ev => ({
+      ...ev,
+      cursoDetalle: courseMap.get(calRef(ev.cursoId || ev.curso)) || null,
+      _fechaInicio: calDateValue(ev.fechaInicio),
+      _fechaFin: calDateValue(ev.fechaFin)
+    }))
+    .filter(ev => ev._fechaInicio)
+    .sort((a, b) => a._fechaInicio - b._fechaInicio);
 
   return { state: 'OK', events: visible };
 }
@@ -163,8 +181,8 @@ function calEnsureStyles() {
     .cpc-cal-body{padding:0 14px 16px;overflow:auto;max-height:calc(90vh - 112px)}.cpc-cal-loading,.cpc-cal-empty,.cpc-cal-error{padding:34px 12px;text-align:center;color:#64748b}
     .cpc-cal-weekdays,.cpc-cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}.cpc-cal-weekdays div{padding:5px;text-align:center;font-size:.72rem;font-weight:800;color:#64748b}
     .cpc-cal-day{min-height:96px;border:1px solid #e5e7eb;border-radius:12px;padding:7px;background:#fff;overflow:hidden}.cpc-cal-day.is-other{background:#f8fafc;color:#94a3b8}.cpc-cal-day.is-today{border-color:#7c3aed;box-shadow:inset 0 0 0 1px #7c3aed}.cpc-cal-daynum{font-size:.78rem;font-weight:800;margin-bottom:5px}
-    .cpc-cal-eventchip{display:block;width:100%;border:0;text-align:left;background:#ede9fe;color:#4c1d95;border-radius:7px;padding:4px 6px;margin:3px 0;font-size:.68rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
-    .cpc-cal-more{font-size:.66rem;color:#64748b;margin-top:3px}.cpc-cal-detail{position:fixed;inset:0;z-index:1310;background:rgba(15,23,42,.38);display:grid;place-items:center;padding:18px}.cpc-cal-detail[hidden]{display:none}.cpc-cal-detail-card{width:min(460px,100%);background:#fff;border-radius:18px;box-shadow:0 20px 60px rgba(15,23,42,.28);padding:18px}.cpc-cal-detail-head{display:flex;justify-content:space-between;gap:12px}.cpc-cal-detail-head button{border:0;background:#f1f5f9;border-radius:9px;width:34px;height:34px;font-size:20px;cursor:pointer}.cpc-cal-type{display:inline-block;font-size:.68rem;font-weight:800;color:#5b21b6;background:#ede9fe;padding:4px 8px;border-radius:999px;margin-bottom:7px}.cpc-cal-detail h3{margin:0 0 8px;font-size:1.05rem}.cpc-cal-detail p{margin:6px 0;color:#475569}.cpc-cal-detail small{display:block;margin:5px 0;color:#64748b}.cpc-cal-link{display:inline-block;margin-top:10px;font-weight:800;color:#1d4ed8;text-decoration:none}
+    .cpc-cal-eventchip{display:block;width:100%;border:0;text-align:left;background:#ede9fe;color:#4c1d95;border-radius:7px;padding:4px 6px;margin:3px 0;font-size:.68rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}.cpc-cal-code{font-weight:900}
+    .cpc-cal-more{font-size:.66rem;color:#64748b;margin-top:3px}.cpc-cal-detail{position:fixed;inset:0;z-index:1310;background:rgba(15,23,42,.38);display:grid;place-items:center;padding:18px}.cpc-cal-detail[hidden]{display:none}.cpc-cal-detail-card{width:min(460px,100%);background:#fff;border-radius:18px;box-shadow:0 20px 60px rgba(15,23,42,.28);padding:18px}.cpc-cal-detail-head{display:flex;justify-content:space-between;gap:12px}.cpc-cal-detail-head button{border:0;background:#f1f5f9;border-radius:9px;width:34px;height:34px;font-size:20px;cursor:pointer}.cpc-cal-type{display:inline-block;font-size:.68rem;font-weight:800;color:#5b21b6;background:#ede9fe;padding:4px 8px;border-radius:999px;margin-bottom:7px}.cpc-cal-coursecode{display:block;font-size:.78rem;font-weight:900;color:#5b21b6;margin:3px 0 8px}.cpc-cal-detail h3{margin:0 0 8px;font-size:1.05rem}.cpc-cal-detail p{margin:6px 0;color:#475569}.cpc-cal-detail small{display:block;margin:5px 0;color:#64748b}.cpc-cal-link{display:inline-block;margin-top:10px;font-weight:800;color:#1d4ed8;text-decoration:none}
     @media(max-width:620px){.cpc-cal-modal{padding:8px}.cpc-cal-panel{border-radius:16px;max-height:94vh}.cpc-cal-body{padding:0 7px 12px;max-height:calc(94vh - 108px)}.cpc-cal-toolbar{padding:10px}.cpc-cal-weekdays,.cpc-cal-grid{gap:3px}.cpc-cal-weekdays div{font-size:.62rem;padding:3px}.cpc-cal-day{min-height:72px;padding:4px;border-radius:8px}.cpc-cal-daynum{font-size:.68rem}.cpc-cal-eventchip{font-size:.59rem;padding:3px 4px}.cpc-cal-more{font-size:.58rem}.cpc-cal-nav button{padding:7px 9px}.cpc-cal-month{font-size:.9rem}}
   `;
   document.head.appendChild(style);
@@ -179,10 +197,7 @@ function calSameDay(a, b) {
 }
 
 function calEventsForDay(day) {
-  return calState.events.filter(ev => {
-    const d = new Date(ev.fechaInicio || 0);
-    return !Number.isNaN(d.getTime()) && calSameDay(d, day);
-  });
+  return calState.events.filter(ev => ev._fechaInicio && calSameDay(ev._fechaInicio, day));
 }
 
 function calRenderMonth() {
@@ -203,7 +218,11 @@ function calRenderMonth() {
     const events = calEventsForDay(day);
     const other = day.getMonth() !== month;
     const isToday = calSameDay(day, today);
-    const chips = events.slice(0, 2).map(ev => `<button class="cpc-cal-eventchip" type="button" data-cal-event="${calEscape(ev.id)}" title="${calEscape(ev.titulo || 'Evento CPC')}">${calEscape(ev.titulo || ev.tipoEvento || 'Evento')}</button>`).join('');
+    const chips = events.slice(0, 2).map(ev => {
+      const code = calClean(ev.cursoDetalle?.codigoCurso);
+      const label = `${code ? `${code} · ` : ''}${ev.titulo || ev.tipoEvento || 'Evento'}`;
+      return `<button class="cpc-cal-eventchip" type="button" data-cal-event="${calEscape(ev.id)}" title="${calEscape(label)}">${calEscape(label)}</button>`;
+    }).join('');
     const more = events.length > 2 ? `<div class="cpc-cal-more">+${events.length - 2} más</div>` : '';
     html += `<div class="cpc-cal-day${other ? ' is-other' : ''}${isToday ? ' is-today' : ''}"><div class="cpc-cal-daynum">${day.getDate()}</div>${chips}${more}</div>`;
   }
@@ -211,10 +230,8 @@ function calRenderMonth() {
 }
 
 function calFormatRange(ev) {
-  const start = ev.fechaInicio ? new Date(ev.fechaInicio) : null;
-  const end = ev.fechaFin ? new Date(ev.fechaFin) : null;
-  const fmt = d => d && !Number.isNaN(d.getTime()) ? new Intl.DateTimeFormat('es-MX', { weekday:'short', day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }).format(d) : '';
-  const a = fmt(start), b = fmt(end);
+  const fmt = d => d ? new Intl.DateTimeFormat('es-MX', { weekday:'short', day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }).format(d) : '';
+  const a = fmt(ev._fechaInicio), b = fmt(ev._fechaFin);
   return a && b ? `${a} — ${b}` : a || b;
 }
 
@@ -224,13 +241,15 @@ function calOpenDetail(eventId) {
   const detail = document.getElementById('cpcCalendarDetail');
   const body = detail.querySelector('[data-cal-detail-body]');
   const curso = ev.cursoDetalle;
-  const lugar = calClean(ev.lugar);
+  const code = calClean(curso?.codigoCurso);
+  const lugar = calClean(ev.lugar || curso?.lugar);
   const url = typeof ev.urlDestino === 'string' ? ev.urlDestino : (ev.urlDestino?.url || '');
   body.innerHTML = `
     <span class="cpc-cal-type">${calEscape(ev.tipoEvento || 'EVENTO')}</span>
+    ${code ? `<span class="cpc-cal-coursecode">${calEscape(code)}</span>` : ''}
     <h3>${calEscape(ev.titulo || 'Evento CPC')}</h3>
     <small>${calEscape(calFormatRange(ev))}</small>
-    ${curso ? `<small>${calEscape(curso.codigoCurso || '')}${curso.nombreCurso ? ` · ${calEscape(curso.nombreCurso)}` : ''}</small>` : ''}
+    ${curso?.nombreCurso ? `<small>${calEscape(curso.nombreCurso)}</small>` : ''}
     ${lugar ? `<small>📍 ${calEscape(lugar)}</small>` : ''}
     ${ev.descripcion ? `<p>${calEscape(ev.descripcion)}</p>` : ''}
     ${url ? `<a class="cpc-cal-link" href="${calEscape(url)}">Abrir</a>` : ''}`;
@@ -250,10 +269,7 @@ function calEnsureModal() {
     <section class="cpc-cal-panel" role="dialog" aria-modal="true" aria-labelledby="cpcCalTitle">
       <header class="cpc-cal-top"><strong id="cpcCalTitle">Calendario</strong><button class="cpc-cal-close" type="button" aria-label="Cerrar">×</button></header>
       <div class="cpc-cal-toolbar"><div class="cpc-cal-month" data-cal-month></div><div class="cpc-cal-nav"><button type="button" data-cal-prev>‹</button><button type="button" data-cal-today>Hoy</button><button type="button" data-cal-next>›</button></div></div>
-      <div class="cpc-cal-body" data-cpc-cal-body>
-        <div class="cpc-cal-weekdays"><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div></div>
-        <div class="cpc-cal-grid" data-cal-grid></div>
-      </div>
+      <div class="cpc-cal-body" data-cpc-cal-body><div class="cpc-cal-weekdays"><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div></div><div class="cpc-cal-grid" data-cal-grid></div></div>
     </section>`;
   document.body.appendChild(modal);
 
