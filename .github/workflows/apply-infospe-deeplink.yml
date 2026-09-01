@@ -106,3 +106,5 @@ function closeInfospe() {
           fi
           git commit -m "feat: add shareable INFOSPE deep link"
           git push
+
+# trigger: 2026-09-01
