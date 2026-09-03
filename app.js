@@ -283,7 +283,7 @@ function render(member) {
               <p>La normatividad en el Estado de Guanajuato establece la obligación a la empresas de seguridad privada que cumplan un programa de capacitación basado en la currícula que el INFOSPE establece.</p>
               <p>Este requisito se cumple acreditando la aprobación del Curso Básico de Profesionalización en Materia de Seguridad Privada.</p>
               <p>El curso es presencial con apoyo en plataformas digitales y sesiones virtuales.</p>
-              <p>El período de impartición del curso base se realiza en 12 sesiones, una por semana.</p>
+              <p>El período de impartición del curso base se realiza en 15 semanas.</p>
               <p>De acuerdo a los requerimientos de la empresa, se puede impartir el curso en períodos convenientes para el cliente.</p>
             </div>
             <div class="infospe-accreditation-inline">
