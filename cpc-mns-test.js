@@ -1,7 +1,7 @@
 import { createClient, OAuthStrategy } from 'https://esm.sh/@wix/sdk';
 
 const CHANNEL = 'MNS_FRONTEND';
-const MNS_FRAME_URL = 'mns-frontend.html?v=0.5.1';
+const MNS_FRAME_URL = 'mns-frontend-v052.html?v=0.5.2';
 const MNS_INVOKE_URL = 'https://www.wixapis.com/velo/v1/http/invoke/mnsBridge';
 
 const CLIENT_ID = '76bd3893-6f4b-4da9-bdc8-9c1d22513ee6';
@@ -27,17 +27,10 @@ function tokenExpired(accessToken) {
 async function getAccessToken() {
   let tokens = readTokens();
   if (!tokens?.accessToken?.value) return '';
-
   if (!tokenExpired(tokens.accessToken)) return tokens.accessToken.value;
   if (!tokens?.refreshToken?.value) return '';
 
-  const client = createClient({
-    auth: OAuthStrategy({
-      clientId: CLIENT_ID,
-      tokens
-    })
-  });
-
+  const client = createClient({ auth: OAuthStrategy({ clientId: CLIENT_ID, tokens }) });
   try {
     const renewed = await client.auth.renewToken(tokens.refreshToken);
     localStorage.setItem(TOKEN_KEY, JSON.stringify(renewed));
@@ -66,10 +59,12 @@ function ensureStyles() {
     .cpc-mns-frame{display:block;width:100%;height:100%;border:0;background:#f6f8fb}
     body.cpc-mns-open{overflow:hidden}
     @media(min-width:760px){
-      .cpc-mns-overlay{padding:24px}
+      .cpc-mns-overlay{padding:28px;align-items:center}
       .cpc-mns-panel{
-        max-width:540px;height:calc(100dvh - 48px);border-radius:22px;
-        box-shadow:0 20px 70px rgba(6,31,57,.26)
+        width:min(1040px,calc(100vw - 56px));
+        height:min(820px,calc(100dvh - 56px));
+        border-radius:22px;
+        box-shadow:0 24px 80px rgba(6,31,57,.28)
       }
     }
   `;
