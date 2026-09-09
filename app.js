@@ -266,7 +266,7 @@ function render(member) {
 
       <footer class="app-footer">
         <div class="powered-by"><span>Powered by</span><img src="assets/logo_scad_hub.png" alt="SCaD HUB"></div>
-        <span class="version">v0.4.0 | 2026</span>
+        <span class="version">v0.4.1 | 2026</span>
       </footer>
     </div>
 
