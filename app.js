@@ -11,6 +11,12 @@ const URLS = {
   certificacionInfospe: 'assets/cpc_certificacion.pdf'
 };
 
+function withWixReturnUrl(rawUrl) {
+  const url = new URL(rawUrl, window.location.href);
+  url.searchParams.set('mensaje', window.location.href);
+  return url.toString();
+}
+
 const CONSTANCIAS = [
   {
     numero: '01',
@@ -226,13 +232,13 @@ function render(member) {
             <span class="arrow">›</span>
           </button>
 
-          <a class="module-card accent-navy" href="${URLS.misCursos}?target=mis-cursos">
+          <a class="module-card accent-navy" href="${withWixReturnUrl(URLS.misCursos + '?target=mis-cursos')}">
             <span class="module-icon">▶</span>
             <span class="module-copy"><strong>MIS CURSOS</strong><small>Programas en curso</small></span>
             <span class="arrow">›</span>
           </a>
 
-          <a class="module-card accent-green" href="${URLS.catalogoCursos}">
+          <a class="module-card accent-green" href="${withWixReturnUrl(URLS.catalogoCursos)}">
             <span class="module-icon">▦</span>
             <span class="module-copy"><strong>CATÁLOGO DE CURSOS</strong><small>Explora la oferta de capacitación</small></span>
             <span class="arrow">›</span>
@@ -260,7 +266,7 @@ function render(member) {
 
       <footer class="app-footer">
         <div class="powered-by"><span>Powered by</span><img src="assets/logo_scad_hub.png" alt="SCaD HUB"></div>
-        <span class="version">v0.2.7 | 2026</span>
+        <span class="version">v0.4.0 | 2026</span>
       </footer>
     </div>
 
