@@ -350,7 +350,7 @@ document.addEventListener('click', event => {
 const versionObserver = new MutationObserver(() => {
   const version = document.querySelector('.version');
   if (!version) return;
-  version.textContent = 'v0.3.9 | 2026';
+  version.textContent = 'v0.4.1 | 2026';
   versionObserver.disconnect();
 });
 versionObserver.observe(document.documentElement, { childList: true, subtree: true });
