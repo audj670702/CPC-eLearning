@@ -53,6 +53,47 @@ function normalizeCourseUrl(value) {
   return typeof value === 'string' ? value : (value.url || value.href || '');
 }
 
+function normalizeWixImage(value) {
+  if (!value) return '';
+  if (typeof value === 'object') {
+    const direct = value.url || value.src || value.fileUrl || '';
+    if (direct) return normalizeWixImage(direct);
+    const mediaId = value.id || value.mediaId || '';
+    return mediaId ? `https://static.wixstatic.com/media/${encodeURIComponent(mediaId)}` : '';
+  }
+  const raw = String(value).trim();
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (raw.startsWith('wix:image://v1/')) {
+    const mediaPath = raw.slice('wix:image://v1/'.length).split('#')[0];
+    const mediaId = mediaPath.split('/')[0];
+    return mediaId ? `https://static.wixstatic.com/media/${mediaId}` : '';
+  }
+  return '';
+}
+
+function normalizeStatus(value) {
+  return String(value || 'Inscrito').trim() || 'Inscrito';
+}
+
+function statusKey(value) {
+  return normalizeStatus(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-');
+}
+
+function statusClass(value) {
+  const key = statusKey(value);
+  if (key.includes('pendiente') || key.includes('programado')) return 'is-pending';
+  if (key.includes('proceso')) return 'is-progress';
+  if (key.includes('concluido') || key.includes('aprobado')) return 'is-done';
+  if (key.includes('cancelado') || key.includes('no-aprobado')) return 'is-cancelled';
+  if (key.includes('no-aplica')) return 'is-neutral';
+  return '';
+}
+
 function extractMemberEmail(member) {
   const candidates = [member?.loginEmail, member?.contactDetails?.emails?.[0], member?.contact?.emails?.[0]];
   for (const candidate of candidates) {
@@ -147,7 +188,14 @@ function ensureCoursesModal() {
   modal.hidden = true;
   modal.innerHTML = `
     <section class="cpc-courses-panel" role="dialog" aria-modal="true" aria-labelledby="cpcCoursesTitle">
-      <header class="cpc-courses-topbar"><div><strong id="cpcCoursesTitle">Mis cursos</strong><small>Inscripciones CPC</small></div><button class="cpc-courses-close" type="button" aria-label="Cerrar">×</button></header>
+      <header class="cpc-courses-topbar">
+        <div class="cpc-courses-heading">
+          <strong id="cpcCoursesTitle">Mis cursos</strong>
+          <small data-cpc-courses-summary>Consultando cursos…</small>
+        </div>
+        <button class="cpc-courses-close" type="button" aria-label="Cerrar">×</button>
+      </header>
+      <div class="cpc-courses-filters" data-cpc-courses-filters hidden></div>
       <div class="cpc-courses-body" data-cpc-courses-body></div>
     </section>`;
   document.body.appendChild(modal);
@@ -157,45 +205,127 @@ function ensureCoursesModal() {
   return modal;
 }
 
-function renderCourseRows(result) {
-  if (result.state === 'USER_NOT_REGISTERED') return `<div class="cpc-courses-empty"><strong>Tu cuenta Wix está conectada.</strong><p>No existe un usuario CPC activo registrado con el correo ${escapeHtml(result.email || '')}.</p></div>`;
-  if (result.state === 'MEMBER_EMAIL_MISSING') return '<div class="cpc-courses-empty"><strong>No fue posible vincular tu identidad CPC.</strong></div>';
-  if (result.state === 'DUPLICATE_EMAIL' || result.state === 'IDENTITY_CONFLICT') return '<div class="cpc-courses-error"><strong>Existe una inconsistencia en tu registro CPC.</strong><p>Requiere revisión administrativa.</p></div>';
-  if (result.state === 'NO_ENROLLMENTS') return '<div class="cpc-courses-empty"><strong>No tienes cursos asignados.</strong><p>Cuando exista una inscripción activa aparecerá aquí automáticamente.</p></div>';
-
-  const rows = result.inscripciones.map(inscripcion => {
+function getRenderableCourses(result) {
+  if (!Array.isArray(result?.inscripciones)) return [];
+  return result.inscripciones.map(inscripcion => {
     const curso = inscripcion.cursoDetalle;
-    if (!curso) return '';
-    const code = curso.codigoCurso || 'Sin código';
-    const start = formatDate(curso.fechaInicio);
-    const end = formatDate(curso.fechaFin);
-    const dateText = start && end ? `${start} — ${end}` : start || end || '';
-    const url = normalizeCourseUrl(curso.urlCurso);
-    const status = inscripcion.estatus || curso.estatus || 'Inscrito';
-    return `
-      <article class="cpc-course-row">
-        <div class="cpc-course-main">
-          <span class="cpc-course-status">${escapeHtml(status)}</span>
-          <strong>${escapeHtml(code)}</strong>
-          <p>${escapeHtml(curso.nombreCurso || 'Curso CPC')}</p>
-          ${curso.descripcionCorta ? `<p>${escapeHtml(curso.descripcionCorta)}</p>` : ''}
-          ${dateText ? `<small>${escapeHtml(dateText)}</small>` : ''}
-        </div>
-        ${url ? `<a class="cpc-course-open" href="${escapeHtml(url)}">Abrir curso</a>` : '<span class="cpc-course-no-link">Sin enlace disponible</span>'}
-      </article>`;
-  }).filter(Boolean).join('');
+    if (!curso) return null;
+    const status = normalizeStatus(inscripcion.estatus || curso.estatus || 'Inscrito');
+    return { inscripcion, curso, status, filterKey: statusKey(status) };
+  }).filter(Boolean);
+}
 
-  return rows || '<div class="cpc-courses-empty"><strong>Tienes inscripciones activas, pero no fue posible vincular sus cursos.</strong></div>';
+function renderCourseCard(entry) {
+  const { curso, status, filterKey } = entry;
+  const code = curso.codigoCurso || 'Sin código';
+  const start = formatDate(curso.fechaInicio);
+  const end = formatDate(curso.fechaFin);
+  const dateText = start && end ? `${start} — ${end}` : start || end || '';
+  const url = normalizeCourseUrl(curso.urlCurso);
+  const image = normalizeWixImage(curso.imagenUrl);
+  const imageMarkup = image
+    ? `<div class="cpc-course-thumb"><img src="${escapeHtml(image)}" alt="" loading="lazy"></div>`
+    : '';
+  const openMarkup = url
+    ? `<a class="cpc-course-open" href="${escapeHtml(url)}" aria-label="Abrir ${escapeHtml(curso.nombreCurso || code)}" title="Abrir curso">
+         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M21 3l-9 9M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6"/></svg>
+       </a>`
+    : `<span class="cpc-course-no-link" aria-label="Sin enlace disponible">—</span>`;
+
+  return `
+    <article class="cpc-course-row${image ? ' has-image' : ''}" data-course-status="${escapeHtml(filterKey)}">
+      ${imageMarkup}
+      <div class="cpc-course-main">
+        <span class="cpc-course-status ${statusClass(status)}">${escapeHtml(status)}</span>
+        <strong class="cpc-course-code">${escapeHtml(code)}</strong>
+        <p class="cpc-course-title">${escapeHtml(curso.nombreCurso || 'Curso CPC')}</p>
+        ${dateText ? `<small class="cpc-course-date"><span aria-hidden="true">▣</span>${escapeHtml(dateText)}</small>` : ''}
+      </div>
+      ${openMarkup}
+    </article>`;
+}
+
+function renderFilters(entries) {
+  const counts = new Map();
+  const labels = new Map();
+  entries.forEach(entry => {
+    counts.set(entry.filterKey, (counts.get(entry.filterKey) || 0) + 1);
+    if (!labels.has(entry.filterKey)) labels.set(entry.filterKey, entry.status);
+  });
+
+  return [
+    `<button class="cpc-course-filter is-active" type="button" data-filter="all">Todos <span>(${entries.length})</span></button>`,
+    ...Array.from(counts.entries()).map(([key, count]) =>
+      `<button class="cpc-course-filter" type="button" data-filter="${escapeHtml(key)}">${escapeHtml(labels.get(key))} <span>(${count})</span></button>`
+    )
+  ].join('');
+}
+
+function bindCourseFilters(modal) {
+  const filters = modal.querySelector('[data-cpc-courses-filters]');
+  if (!filters || filters.dataset.bound === '1') return;
+  filters.dataset.bound = '1';
+  filters.addEventListener('click', event => {
+    const button = event.target.closest('.cpc-course-filter');
+    if (!button) return;
+    const selected = button.dataset.filter || 'all';
+    filters.querySelectorAll('.cpc-course-filter').forEach(item => item.classList.toggle('is-active', item === button));
+    modal.querySelectorAll('.cpc-course-row').forEach(row => {
+      row.hidden = selected !== 'all' && row.dataset.courseStatus !== selected;
+    });
+  });
+}
+
+function renderCourseRows(result, modal) {
+  const summary = modal.querySelector('[data-cpc-courses-summary]');
+  const filters = modal.querySelector('[data-cpc-courses-filters]');
+  filters.hidden = true;
+  filters.innerHTML = '';
+
+  if (result.state === 'USER_NOT_REGISTERED') {
+    summary.textContent = 'Sin cursos disponibles';
+    return `<div class="cpc-courses-empty"><strong>Tu cuenta Wix está conectada.</strong><p>No existe un usuario CPC activo registrado con el correo ${escapeHtml(result.email || '')}.</p></div>`;
+  }
+  if (result.state === 'MEMBER_EMAIL_MISSING') {
+    summary.textContent = 'No fue posible identificar tus cursos';
+    return '<div class="cpc-courses-empty"><strong>No fue posible vincular tu identidad CPC.</strong></div>';
+  }
+  if (result.state === 'DUPLICATE_EMAIL' || result.state === 'IDENTITY_CONFLICT') {
+    summary.textContent = 'Revisión administrativa requerida';
+    return '<div class="cpc-courses-error"><strong>Existe una inconsistencia en tu registro CPC.</strong><p>Requiere revisión administrativa.</p></div>';
+  }
+  if (result.state === 'NO_ENROLLMENTS') {
+    summary.textContent = '0 cursos';
+    return '<div class="cpc-courses-empty"><strong>No tienes cursos asignados.</strong><p>Cuando exista una inscripción activa aparecerá aquí automáticamente.</p></div>';
+  }
+
+  const entries = getRenderableCourses(result);
+  const count = entries.length;
+  summary.textContent = `${count} ${count === 1 ? 'curso' : 'cursos'} en total`;
+
+  if (!entries.length) {
+    return '<div class="cpc-courses-empty"><strong>Tienes inscripciones activas, pero no fue posible vincular sus cursos.</strong></div>';
+  }
+
+  filters.innerHTML = renderFilters(entries);
+  filters.hidden = false;
+  bindCourseFilters(modal);
+  return entries.map(renderCourseCard).join('');
 }
 
 async function openMyCourses() {
   const modal = ensureCoursesModal();
   const body = modal.querySelector('[data-cpc-courses-body]');
+  const summary = modal.querySelector('[data-cpc-courses-summary]');
+  const filters = modal.querySelector('[data-cpc-courses-filters]');
   modal.hidden = false;
   document.body.classList.add('modal-open');
+  summary.textContent = 'Consultando cursos…';
+  filters.hidden = true;
   body.innerHTML = '<div class="cpc-courses-loading">Cargando cursos…</div>';
   try {
-    body.innerHTML = renderCourseRows(await loadMyCourses());
+    const result = await loadMyCourses();
+    body.innerHTML = renderCourseRows(result, modal);
   } catch (error) {
     console.error('CPC cursos:', error);
     if (error?.code === 'AUTH_REQUIRED' || error?.message === 'AUTH_REQUIRED') {
@@ -205,6 +335,7 @@ async function openMyCourses() {
       if (loginButton) loginButton.click(); else alert('Inicia sesión para consultar tus cursos.');
       return;
     }
+    summary.textContent = 'Error al cargar cursos';
     body.innerHTML = `<div class="cpc-courses-error"><strong>No fue posible cargar tus cursos.</strong><p>${escapeHtml(error?.message || 'Error de conexión con CPC.')}</p></div>`;
   }
 }
@@ -219,7 +350,7 @@ document.addEventListener('click', event => {
 const versionObserver = new MutationObserver(() => {
   const version = document.querySelector('.version');
   if (!version) return;
-  version.textContent = 'v0.3.8 | 2026';
+  version.textContent = 'v0.3.9 | 2026';
   versionObserver.disconnect();
 });
 versionObserver.observe(document.documentElement, { childList: true, subtree: true });
