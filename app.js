@@ -3,18 +3,32 @@ import { createClient, OAuthStrategy } from 'https://esm.sh/@wix/sdk';
 const app = document.getElementById('app');
 if (!app) throw new Error('No se encontró #app');
 
+const SCAD_SITE_URL = 'https://www.scad.mx';
+
 const URLS = {
   misCursos: 'https://www.scad.mx/mis-cursos',
   catalogoCursos: 'https://www.scad.mx/e-learning',
   gymEntrenamiento: 'https://gym.scad.mx/',
   hlsTv: 'https://motortv.scad.mx/hls/canal.m3u8',
-  certificacionInfospe: 'assets/cpc_certificacion.pdf'
+  certificacionInfospe: 'assets/cpc_certificacion.pdf',
+  scadHub: SCAD_SITE_URL
 };
 
 function withWixReturnUrl(rawUrl) {
   const url = new URL(rawUrl, window.location.href);
   url.searchParams.set('mensaje', window.location.href);
   return url.toString();
+}
+
+function getMemberAreaUrl(member, pageSlug) {
+  const memberSlug = String(member?.slug || '').trim();
+  if (!memberSlug) return '#';
+
+  const url = new URL(
+    `${SCAD_SITE_URL}/members-area/${encodeURIComponent(memberSlug)}/${pageSlug}`
+  );
+  url.searchParams.set('disableScrollToTop', 'true');
+  return withWixReturnUrl(url.toString());
 }
 
 const CONSTANCIAS = [
@@ -161,7 +175,8 @@ function normalizeMember(member) {
   const fullName = `${firstName} ${lastName}`.trim();
   const name = fullName || profile.nickname || member.loginEmail || 'Usuario';
   const avatar = profile.photo?.url || profile.photo?.image?.url || profile.image?.url || '';
-  return { id: member.id, name, email: member.loginEmail || '', avatar };
+  const slug = profile.slug || '';
+  return { id: member.id, name, email: member.loginEmail || '', avatar, slug };
 }
 
 function constanciasHtml() {
@@ -191,10 +206,16 @@ function render(member) {
           <span class="member-name">${member.name}</span>
           <span class="member-chevron">⌄</span>
         </button>
-        <div class="member-menu" hidden>
+        <nav class="member-menu" aria-label="Cuenta SCaD" hidden>
           <span class="member-email">${member.email}</span>
+          <a class="member-menu-link" href="${getMemberAreaUrl(member, 'my-account')}">Mi Perfil SCaD</a>
+          <a class="member-menu-link" href="${getMemberAreaUrl(member, 'my-subscriptions')}">Mis suscripciones</a>
+          <a class="member-menu-link" href="${getMemberAreaUrl(member, 'my-wallet')}">Mis formas de pago</a>
+          <a class="member-menu-link" href="${getMemberAreaUrl(member, 'my-groups')}">Mis grupos</a>
+          <a class="member-menu-link" href="${withWixReturnUrl(URLS.scadHub)}">SCaD HUB</a>
+          <div class="member-menu-separator" aria-hidden="true"></div>
           <button class="logout-btn" type="button">Cerrar sesión</button>
-        </div>
+        </nav>
       </div>`
     : '<button class="session-btn" type="button">Iniciar sesión</button>';
 
@@ -266,7 +287,7 @@ function render(member) {
 
       <footer class="app-footer">
         <div class="powered-by"><span>Powered by</span><img src="assets/logo_scad_hub.png" alt="SCaD HUB"></div>
-        <span class="version">v0.4.1 | 2026</span>
+        <span class="version">v0.4.2 | 2026</span>
       </footer>
     </div>
 
