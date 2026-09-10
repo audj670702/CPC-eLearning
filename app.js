@@ -9,6 +9,7 @@ const URLS = {
   misCursos: 'https://www.scad.mx/mis-cursos',
   catalogoCursos: 'https://www.scad.mx/e-learning',
   gymEntrenamiento: 'https://gym.scad.mx/',
+  gymIcon: 'https://gym.scad.mx/assets/entrenamiento-gym-logo-sentadilla.png',
   hlsTv: 'https://motortv.scad.mx/hls/canal.m3u8',
   certificacionInfospe: 'assets/cpc_certificacion.pdf',
   scadHub: SCAD_SITE_URL
@@ -254,19 +255,19 @@ function render(member) {
           </button>
 
           <a class="module-card accent-navy" href="${withWixReturnUrl(URLS.misCursos + '?target=mis-cursos')}">
-            <span class="module-icon">▶</span>
+            <span class="module-icon">🧑‍💻</span>
             <span class="module-copy"><strong>MIS CURSOS</strong><small>Programas en curso</small></span>
             <span class="arrow">›</span>
           </a>
 
           <a class="module-card accent-green" href="${withWixReturnUrl(URLS.catalogoCursos)}">
-            <span class="module-icon">▦</span>
+            <span class="module-icon">📚</span>
             <span class="module-copy"><strong>CATÁLOGO DE CURSOS</strong><small>Explora la oferta de capacitación</small></span>
             <span class="arrow">›</span>
           </a>
 
           <button class="module-card accent-purple" type="button">
-            <span class="module-icon">▣</span>
+            <span class="module-icon">📆</span>
             <span class="module-copy"><strong>CALENDARIO</strong><small>Fechas de clases</small></span>
             <span class="arrow">›</span>
           </button>
@@ -278,7 +279,7 @@ function render(member) {
           </button>
 
           <a class="module-card accent-orange" href="${URLS.gymEntrenamiento}">
-            <span class="module-icon">＋</span>
+            <span class="module-icon module-logo"><img src="${URLS.gymIcon}" alt="GYM Entrenamiento"></span>
             <span class="module-copy"><strong>GYM ENTRENAMIENTO</strong><small>Acceso a entrenamiento</small></span>
             <span class="arrow">›</span>
           </a>
@@ -287,7 +288,7 @@ function render(member) {
 
       <footer class="app-footer">
         <div class="powered-by"><span>Powered by</span><img src="assets/logo_scad_hub.png" alt="SCaD HUB"></div>
-        <span class="version">v0.4.2 | 2026</span>
+        <span class="version">v0.4.3 | 2026</span>
       </footer>
     </div>
 
