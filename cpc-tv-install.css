@@ -1,0 +1,51 @@
+.tv-card {
+  position: relative;
+}
+
+.tv-install-btn {
+  position: absolute;
+  top: 7px;
+  right: 11px;
+  z-index: 2;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #98a3b2;
+  font-size: .52rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0;
+  white-space: nowrap;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.tv-install-btn:not(:disabled) {
+  cursor: pointer;
+}
+
+.tv-install-btn:disabled {
+  color: #a6afbb;
+  opacity: 1;
+  cursor: default;
+}
+
+.tv-install-btn:hover:not(:disabled),
+.tv-install-btn:focus-visible:not(:disabled) {
+  color: #6f7c8d;
+  background: transparent;
+  outline: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@media (max-width: 560px) {
+  .tv-install-btn {
+    top: 6px;
+    right: 10px;
+    font-size: .5rem;
+  }
+}
