@@ -1,7 +1,7 @@
 import { createClient, OAuthStrategy } from 'https://esm.sh/@wix/sdk';
 
 const CHANNEL = 'MNS_FRONTEND';
-const MNS_FRAME_URL = 'mns-frontend-v052.html?v=0.5.5';
+const MNS_FRAME_URL = 'mns-frontend-v052.html?v=0.5.6';
 const MNS_INVOKE_URL = 'https://www.scad.mx/_functions/mnsBridge';
 
 const CLIENT_ID = '76bd3893-6f4b-4da9-bdc8-9c1d22513ee6';
@@ -149,7 +149,7 @@ async function invokeMns(action, payload) {
     method: 'POST',
     cache: 'no-store',
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: accessToken,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
