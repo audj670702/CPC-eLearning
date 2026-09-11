@@ -1,8 +1,8 @@
 import { createClient, OAuthStrategy } from 'https://esm.sh/@wix/sdk';
 
 const CHANNEL = 'MNS_FRONTEND';
-const MNS_FRAME_URL = 'mns-frontend-v052.html?v=0.5.4';
-const MNS_INVOKE_URL = 'https://www.wixapis.com/velo/v1/http/invoke/mnsBridge';
+const MNS_FRAME_URL = 'mns-frontend-v052.html?v=0.5.5';
+const MNS_INVOKE_URL = 'https://www.scad.mx/_functions/mnsBridge';
 
 const CLIENT_ID = '76bd3893-6f4b-4da9-bdc8-9c1d22513ee6';
 const TOKEN_KEY = 'cpc_wix_member_tokens';
