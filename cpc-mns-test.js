@@ -8,8 +8,7 @@ const CLIENT_ID = '76bd3893-6f4b-4da9-bdc8-9c1d22513ee6';
 const TOKEN_KEY = 'cpc_wix_member_tokens';
 
 const MNS_CONTEXT = Object.freeze({
-  appId: '517f9bac-b113-48aa-b97c-cf8034e4d750',
-  eoId: '2aed39b1-8110-4bac-af71-5a8d0d68bf6d'
+  mnsKey: 'MNS-RFRW2JY5BXMZ'
 });
 
 function readTokens() {
