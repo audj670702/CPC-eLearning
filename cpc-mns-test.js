@@ -1,8 +1,8 @@
 import { createClient, OAuthStrategy } from 'https://esm.sh/@wix/sdk';
+import { functions } from 'https://esm.sh/@wix/http-functions@1.0.0';
 
 const CHANNEL = 'MNS_FRONTEND';
-const MNS_FRAME_URL = 'mns-frontend-v052.html?v=0.5.7';
-const MNS_INVOKE_URL = 'https://www.wixapis.com/velo/v1/http/invoke/mnsBridge';
+const MNS_FRAME_URL = 'mns-frontend-v052.html?v=0.5.8';
 
 const CLIENT_ID = '76bd3893-6f4b-4da9-bdc8-9c1d22513ee6';
 const TOKEN_KEY = 'cpc_wix_member_tokens';
@@ -145,11 +145,21 @@ async function invokeMns(action, payload) {
   const accessToken = await getAccessToken();
   if (!accessToken) throw new Error('Inicia sesión para usar Mensajería.');
 
-  const response = await fetch(MNS_INVOKE_URL, {
-    method: 'POST',
-    cache: 'no-store',
+  const tokens = readTokens();
+  if (!tokens?.accessToken?.value) {
+    throw new Error('Inicia sesión para usar Mensajería.');
+  }
+
+  const client = createClient({
+    modules: { functions },
+    auth: OAuthStrategy({
+      clientId: CLIENT_ID,
+      tokens
+    })
+  });
+
+  const response = await client.functions.post('mnsBridge', {
     headers: {
-      Authorization: accessToken,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
