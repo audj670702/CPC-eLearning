@@ -152,7 +152,13 @@ async function invokeMns(action, payload) {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ action, payload })
+    body: JSON.stringify({
+      action,
+      payload: {
+        ...(payload || {}),
+        mnsKey: MNS_CONTEXT.mnsKey
+      }
+    })
   });
 
   const data = await response.json().catch(() => ({}));
