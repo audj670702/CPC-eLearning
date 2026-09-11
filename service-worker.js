@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cpc-elearning-v0.4.4-mns-v0.5.4';
+const CACHE_NAME = 'cpc-elearning-v0.4.4-mns-v0.5.5';
 const APP_SHELL = [
   './',
   './index.html',
@@ -27,10 +27,20 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+function unavailableResponse() {
+  return new Response('Recurso temporalmente no disponible.', {
+    status: 503,
+    statusText: 'Service Unavailable',
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+  });
+}
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const requestUrl = new URL(event.request.url);
+  if (requestUrl.protocol !== 'http:' && requestUrl.protocol !== 'https:') return;
+
   const isNavigation =
     event.request.mode === 'navigate' ||
     requestUrl.pathname.endsWith('/') ||
@@ -42,32 +52,53 @@ self.addEventListener('fetch', (event) => {
         .then((response) => {
           if (response && response.status === 200) {
             const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put('./index.html', copy);
-            });
+            event.waitUntil(
+              caches.open(CACHE_NAME)
+                .then((cache) => cache.put('./index.html', copy))
+                .catch(() => undefined)
+            );
           }
           return response;
         })
-        .catch(() =>
-          caches.match('./index.html').then((cached) => cached || caches.match('./'))
+        .catch(async () =>
+          (await caches.match('./index.html')) ||
+          (await caches.match('./')) ||
+          unavailableResponse()
         )
     );
     return;
   }
 
+  if (event.request.headers.has('range')) {
+    event.respondWith(
+      fetch(event.request).catch(() => unavailableResponse())
+    );
+    return;
+  }
+
   event.respondWith(
-    caches.match(event.request).then((cached) => {
+    caches.match(event.request).then(async (cached) => {
       if (cached) return cached;
 
-      return fetch(event.request).then((response) => {
-        if (!response || response.status !== 200 || response.type === 'opaque') {
-          return response;
+      try {
+        const response = await fetch(event.request);
+        if (
+          response &&
+          response.status === 200 &&
+          response.type !== 'opaque' &&
+          requestUrl.origin === self.location.origin
+        ) {
+          const copy = response.clone();
+          event.waitUntil(
+            caches.open(CACHE_NAME)
+              .then((cache) => cache.put(event.request, copy))
+              .catch(() => undefined)
+          );
         }
-
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         return response;
-      });
+      } catch {
+        return unavailableResponse();
+      }
     })
   );
 });
