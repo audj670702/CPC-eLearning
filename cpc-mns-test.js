@@ -2,7 +2,7 @@ import { createClient, OAuthStrategy } from 'https://esm.sh/@wix/sdk';
 import { functions } from 'https://esm.sh/@wix/http-functions@1.0.0';
 
 const CHANNEL = 'MNS_FRONTEND';
-const MNS_FRAME_URL = 'mns-frontend-v052.html?v=0.5.8';
+const MNS_FRAME_URL = 'mns-frontend-v052.html?v=0.5.9';
 
 const CLIENT_ID = '76bd3893-6f4b-4da9-bdc8-9c1d22513ee6';
 const TOKEN_KEY = 'cpc_wix_member_tokens';
