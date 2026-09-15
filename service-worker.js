@@ -1,10 +1,13 @@
-const CACHE_NAME = 'cpc-elearning-v0.4.4-mns-v0.5.8';
+const CACHE_NAME = 'cpc-elearning-v0.4.4-mns-v0.5.9';
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
   './assets/icon-192.png',
-  './assets/icon-512.png'
+  './assets/icon-512.png',
+  './cpc-mns-test.js?v=0.5.9',
+  './mns-frontend-v052.html?v=0.5.9',
+  './mns-frontend.html?v=0.5.9'
 ];
 
 self.addEventListener('install', (event) => {
