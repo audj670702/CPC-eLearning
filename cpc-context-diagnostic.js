@@ -23,8 +23,9 @@ function ensureDiagnosticUi() {
     style.textContent = `
       .cpc-eo-title{
         width:min(100%,760px);margin:0 auto;
-        padding:8px 14px 0;
-        color:#12335c;font-size:.82rem;font-weight:800;line-height:1.15;
+        padding:10px 14px 2px;
+        color:#12335c;font-size:1.05rem;font-weight:850;line-height:1.1;
+        letter-spacing:.015em;
       }
       .cpc-eo-title:empty{display:none}
       .cpc-cca{
@@ -34,7 +35,7 @@ function ensureDiagnosticUi() {
         user-select:text;
       }
       @media(max-width:560px){
-        .cpc-eo-title{padding:7px 11px 0;font-size:.76rem}
+        .cpc-eo-title{padding:8px 11px 2px;font-size:.94rem}
         .cpc-cca{font-size:.49rem}
       }
     `;
