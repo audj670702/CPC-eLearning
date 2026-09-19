@@ -12,19 +12,20 @@ const MNS_CONTEXT = Object.freeze({
 });
 
 const CPC_CONTEXT_URL = 'https://www.scad.mx/_functions/cpcPwaContext';
+let activeContext = null;
 
-function pick(obj, paths) {
-  for (const path of paths) {
-    const value = path.split('.').reduce((acc, key) => acc?.[key], obj);
-    if (value !== undefined && value !== null && String(value).trim() !== '') return value;
-  }
-  return '';
+function resolveMnsContext(ctx) {
+  const eoId = String(ctx?.mns?.eoId || ctx?.eo?.mnsEoId || ctx?.eo?.eoMnsId || '').trim();
+  const eoKey = String(ctx?.eo?.codigoEO || ctx?.mns?.eoKey || ctx?.eo?.mnsEoKey || '').trim();
+  if (!eoId && !eoKey) throw new Error('La APP no recibió el EO MNS correspondiente a este contexto CPC.');
+  return eoId
+    ? { mnsKey: MNS_CONTEXT.mnsKey, eoId }
+    : { mnsKey: MNS_CONTEXT.mnsKey, eoKey };
 }
 
-async function getCpcMnsContext() {
+async function loadCpcContext() {
   const accessToken = await getAccessToken();
   if (!accessToken) throw new Error('Inicia sesión para usar Mensajería.');
-
   const memberRes = await fetch('https://www.wixapis.com/members/v1/members/my?fieldSet=FULL', {
     headers: { Authorization: accessToken, 'Content-Type': 'application/json' },
     cache: 'no-store'
@@ -32,40 +33,10 @@ async function getCpcMnsContext() {
   const memberData = await memberRes.json().catch(() => ({}));
   const memberId = String(memberData?.member?.id || '').trim();
   if (!memberRes.ok || !memberId) throw new Error('No fue posible identificar al usuario CPC.');
-
-  const contextRes = await fetch(
-    CPC_CONTEXT_URL + '?memberId=' + encodeURIComponent(memberId) + '&t=' + Date.now(),
-    { cache: 'no-store' }
-  );
-  const context = await contextRes.json().catch(() => ({}));
-  if (!contextRes.ok || context?.ok !== true) {
-    throw new Error(context?.mensaje || 'No fue posible resolver el contexto CPC.');
-  }
-
-  const eoId = String(pick(context, [
-    'eo._id','eo.id','enteOperador._id','enteOperador.id',
-    'contexto.eo._id','contexto.eo.id','context.eo._id','context.eo.id',
-    'eoId','enteOperadorId'
-  ]) || '').trim();
-  const eoKey = String(pick(context, [
-    'eo.codigoEO','mns.eoKey','eo.mnsEoKey',
-    'eo.codigo','eo.code','enteOperador.codigoEO','enteOperador.codigo','enteOperador.code',
-    'contexto.eo.codigoEO','contexto.eo.codigo','context.eo.codigoEO','context.eo.codigo',
-    'eoKey','eoCodigo','codigoEO'
-  ]) || '').trim();
-  const eoNombre = String(pick(context, [
-    'eo.nombre','eo.name','eo.nombreVisible',
-    'enteOperador.nombre','enteOperador.name','enteOperador.nombreVisible',
-    'contexto.eo.nombre','context.eo.nombre','eoNombre','nombreEO'
-  ]) || '').trim();
-
-  if (!eoId && !eoKey) {
-    throw new Error('La APP no recibió el EO MNS correspondiente a este contexto CPC.');
-  }
-
-  return eoId
-    ? { mnsKey: MNS_CONTEXT.mnsKey, eoId }
-    : { mnsKey: MNS_CONTEXT.mnsKey, eoKey };
+  const r = await fetch(`${CPC_CONTEXT_URL}?memberId=${encodeURIComponent(memberId)}&t=${Date.now()}`, { cache:'no-store' });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok || !data?.ok) throw new Error(data?.mensaje || `Contexto CPC ${r.status}`);
+  return data;
 }
 
 function readTokens() {
@@ -215,7 +186,7 @@ async function invokeMns(action, payload) {
     })
   });
 
-  const resolvedContext = await getCpcMnsContext();
+  const resolvedContext = resolveMnsContext(activeContext);
 
   const response = await client.functions.post('mnsBridge', {
     headers: {
@@ -236,9 +207,18 @@ async function invokeMns(action, payload) {
   return data.data;
 }
 
-function openMns() {
+async function openMns() {
   if (!readTokens()?.accessToken?.value) {
     document.querySelector('.session-btn')?.click();
+    return;
+  }
+
+  try {
+    activeContext = await loadCpcContext();
+    resolveMnsContext(activeContext);
+  } catch (error) {
+    console.error('[CPC MNS]', error);
+    window.alert(error?.message || 'No fue posible abrir Mensajería.');
     return;
   }
 
@@ -287,18 +267,13 @@ window.addEventListener('message', async event => {
   if (message.type === 'READY') {
     applyMnsUi053(frame);
     try {
-      const resolvedContext = await getCpcMnsContext();
+      const resolvedContext = resolveMnsContext(activeContext);
       frame.contentWindow.postMessage({
         channel: CHANNEL,
         type: 'CONTEXT',
         payload: resolvedContext
       }, window.location.origin);
     } catch (error) {
-      frame.contentWindow.postMessage({
-        channel: CHANNEL,
-        type: 'CONTEXT',
-        payload: MNS_CONTEXT
-      }, window.location.origin);
       console.error('[CPC MNS] No fue posible resolver EO:', error);
     }
     return;
