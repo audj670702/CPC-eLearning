@@ -134,6 +134,134 @@ function render(member) {
   bindUI(); initTvPlayer();
 }
 
+let cpcTvContext = null;
+let cpcTvPollTimer = null;
+let cpcTvVideoKey = '';
+
+async function loadCpcTvContext() {
+  const member = await getCurrentMember();
+  const memberId = String(member?.id || '').trim();
+  if (!memberId) throw new Error('Debes iniciar sesión para ver TV Capacitación.');
+
+  const url = CPC_CONTEXT_URL + '?memberId=' + encodeURIComponent(memberId) + '&t=' + Date.now();
+  const response = await fetch(url, { cache: 'no-store' });
+  const data = await response.json().catch(() => ({ ok: false, mensaje: 'HTTP ' + response.status }));
+
+  if (!response.ok || !data?.ok) {
+    throw new Error(data?.mensaje || ('Contexto CPC ' + response.status));
+  }
+
+  return data;
+}
+
+function stopCpcTvPolling() {
+  if (cpcTvPollTimer) clearInterval(cpcTvPollTimer);
+  cpcTvPollTimer = null;
+}
+
+function cpcYoutubeEmbedUrl(tv) {
+  const id = String(tv?.youtubeId || '').trim();
+  if (!id) return '';
+
+  const start = Math.max(0, Math.floor(Number(tv?.segundoInicio) || 0));
+  const url = new URL('https://www.youtube.com/embed/' + encodeURIComponent(id));
+  const video = document.getElementById('cpcTvPlayer');
+
+  url.searchParams.set('autoplay', '1');
+  url.searchParams.set('mute', video?.muted === false ? '0' : '1');
+  url.searchParams.set('playsinline', '1');
+  url.searchParams.set('controls', '1');
+  url.searchParams.set('rel', '0');
+  url.searchParams.set('enablejsapi', '1');
+  url.searchParams.set('start', String(start));
+  url.searchParams.set('origin', location.origin);
+
+  return url.toString();
+}
+
+function renderCpcTvTransmission(force = false) {
+  const video = document.getElementById('cpcTvPlayer');
+  const placeholder = document.getElementById('cpcTvPlaceholder');
+  const tv = cpcTvContext?.tv || null;
+  const id = String(tv?.youtubeId || '').trim();
+
+  if (!video || !placeholder) return;
+
+  if (!id) {
+    cpcTvVideoKey = '';
+    destroyTvSource(video);
+    video.hidden = true;
+    placeholder.textContent = 'TV Capacitación · sin transmisión disponible';
+    placeholder.hidden = false;
+    return;
+  }
+
+  const key = String(tv?.modo || '') + ':' + id;
+  if (!force && cpcTvVideoKey === key) return;
+
+  cpcTvVideoKey = key;
+  destroyTvSource(video);
+  video.hidden = true;
+  placeholder.hidden = false;
+  placeholder.replaceChildren();
+
+  const frame = document.createElement('iframe');
+  frame.id = 'cpcTvYoutubeFrame';
+  frame.src = cpcYoutubeEmbedUrl(tv);
+  frame.title = String(tv?.titulo || 'TV Capacitación');
+  frame.style.width = '100%';
+  frame.style.height = '100%';
+  frame.style.border = '0';
+  frame.style.display = 'block';
+  frame.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+  frame.allowFullscreen = true;
+  placeholder.appendChild(frame);
+}
+
+async function refreshCpcTvTransmission() {
+  const select = document.getElementById('cpcTvChannel');
+  if (select?.value !== 'parrilla') return;
+
+  try {
+    const fresh = await loadCpcTvContext();
+    const previous = String(cpcTvContext?.tv?.modo || '') + ':' + String(cpcTvContext?.tv?.youtubeId || '');
+    const next = String(fresh?.tv?.modo || '') + ':' + String(fresh?.tv?.youtubeId || '');
+
+    cpcTvContext = fresh;
+
+    if (previous !== next) {
+      renderCpcTvTransmission(true);
+    }
+  } catch (error) {
+    console.error('[CPC TV Capacitación]', error);
+  }
+}
+
+async function playCpcTvScad() {
+  const video = document.getElementById('cpcTvPlayer');
+  const placeholder = document.getElementById('cpcTvPlaceholder');
+
+  stopCpcTvPolling();
+
+  try {
+    cpcTvContext = await loadCpcTvContext();
+    renderCpcTvTransmission(true);
+    cpcTvPollTimer = setInterval(refreshCpcTvTransmission, 10000);
+  } catch (error) {
+    console.error('[CPC TV Capacitación]', error);
+
+    if (video) {
+      destroyTvSource(video);
+      video.hidden = true;
+    }
+
+    if (placeholder) {
+      placeholder.textContent = error?.message || 'No fue posible cargar TV Capacitación.';
+      placeholder.hidden = false;
+    }
+  }
+}
+
 function destroyTvSource(video) {
   if (window.__cpcHls) {
     window.__cpcHls.destroy();
@@ -179,16 +307,27 @@ function setCpcTvChannel(channel) {
   if (channelName) channelName.textContent = config.nombre;
 
   if (config.tipo === 'hls') {
-    if (placeholder) placeholder.hidden = true;
+    stopCpcTvPolling();
+    cpcTvVideoKey = '';
+    if (placeholder) {
+      placeholder.hidden = true;
+      placeholder.replaceChildren();
+    }
     video.hidden = false;
     playCpcHls(video, config.url);
     return;
   }
 
+  if (config.tipo === 'tv-scad') {
+    playCpcTvScad();
+    return;
+  }
+
+  stopCpcTvPolling();
   destroyTvSource(video);
   video.hidden = true;
   if (placeholder) {
-    placeholder.textContent = 'Canal Parrilla · fuente pendiente de configuración';
+    placeholder.textContent = 'Canal no disponible';
     placeholder.hidden = false;
   }
 }
