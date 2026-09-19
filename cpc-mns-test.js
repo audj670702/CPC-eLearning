@@ -47,9 +47,11 @@ async function getCpcMnsContext() {
     'contexto.eo._id','contexto.eo.id','context.eo._id','context.eo.id',
     'eoId','enteOperadorId'
   ]) || '').trim();
-  const eoCodigo = String(pick(context, [
-    'eo.codigo','eo.code','enteOperador.codigo','enteOperador.code',
-    'contexto.eo.codigo','context.eo.codigo','eoCodigo','codigoEO'
+  const eoKey = String(pick(context, [
+    'eo.codigoEO','mns.eoKey','eo.mnsEoKey',
+    'eo.codigo','eo.code','enteOperador.codigoEO','enteOperador.codigo','enteOperador.code',
+    'contexto.eo.codigoEO','contexto.eo.codigo','context.eo.codigoEO','context.eo.codigo',
+    'eoKey','eoCodigo','codigoEO'
   ]) || '').trim();
   const eoNombre = String(pick(context, [
     'eo.nombre','eo.name','eo.nombreVisible',
@@ -57,18 +59,13 @@ async function getCpcMnsContext() {
     'contexto.eo.nombre','context.eo.nombre','eoNombre','nombreEO'
   ]) || '').trim();
 
-  if (!eoId && !eoCodigo && !eoNombre) {
-    throw new Error('Falta identificar el Ente Operador MNS.');
+  if (!eoId && !eoKey) {
+    throw new Error('La APP no recibió el EO MNS correspondiente a este contexto CPC.');
   }
 
-  return {
-    mnsKey: MNS_CONTEXT.mnsKey,
-    memberId,
-    eoId,
-    enteOperadorId: eoId,
-    eoCodigo,
-    eoNombre
-  };
+  return eoId
+    ? { mnsKey: MNS_CONTEXT.mnsKey, eoId }
+    : { mnsKey: MNS_CONTEXT.mnsKey, eoKey };
 }
 
 function readTokens() {
