@@ -61,15 +61,8 @@ button { color: inherit; }
 .logout-btn { color: #9b1c1c; }
 
 .home-cpc { width: min(100%, 760px); margin: 0 auto; padding: 14px; flex: 1; }
-.identity-card { min-height:64px;padding:7px 2px;margin-bottom:8px;display:flex;align-items:center;gap:10px;background:transparent;border:0; }
-.identity-avatar { width:46px;height:46px;flex:0 0 auto;border-radius:50%;object-fit:cover;display:grid;place-items:center; }
-.identity-avatar-fallback { background:#eaf0f7;color:#55708f;font-size:.72rem;font-weight:850; }
-.identity-card-copy { min-width:0;flex:1;display:flex;flex-direction:column; }
-.identity-card-copy strong { color:#12335c;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-.identity-card-copy span { margin-top:2px;color:#75849a;font-size:.62rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-.identity-login { border:0;background:transparent;color:#125895;font-size:1.65rem;padding:0 5px;cursor:pointer; }
 .tv-home { position:relative;margin-bottom:14px; }
-.tv-channel-row { display:grid;grid-template-columns:1fr 170px;align-items:end;gap:12px;margin-bottom:5px; }
+.tv-channel-row { display:grid;grid-template-columns:170px;justify-content:end;align-items:end;gap:12px;margin-bottom:5px; }
 .tv-section-label { color:#0d58b7;font-size:.55rem;font-weight:850;letter-spacing:.1em;text-transform:uppercase; }
 .tv-channel-selector { display:flex;align-items:center;gap:6px;min-width:0; }
 .tv-channel-selector>span { color:#0d58b7;font-size:.49rem;font-weight:850;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap; }
@@ -185,9 +178,7 @@ button { color: inherit; }
   .brand img { width: 43px; height: 43px; }
   .install-btn { display: none; }
   .home-cpc { padding: 11px; }
-  .identity-card { min-height:58px;padding-top:5px; }
-  .identity-avatar { width:42px;height:42px; }
-  .tv-channel-row { grid-template-columns:1fr 145px;gap:8px; }
+.tv-channel-row { grid-template-columns:145px;justify-content:end;gap:8px; }
   .tv-monitor { width:145px;grid-template-columns:25px 1fr;gap:3px; }
   .tv-channel-selector>span { font-size:.46rem; }
   .tv-channel-selector select { font-size:.49rem; }
