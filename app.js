@@ -102,18 +102,8 @@ function render(member) {
   app.innerHTML = `<div class="app-shell">
     <header class="topbar"><div class="brand"><img src="assets/icon-192.png" alt="CPC"><strong>CPC e-Learning</strong></div><div class="top-actions">${sessionControl}</div></header>
     <main class="home-cpc">
-      <section class="identity-card" aria-label="Identidad de usuario">
-        ${member ? (member.avatar ? `<img class="identity-avatar" src="${member.avatar}" alt="">` : `<span class="identity-avatar identity-avatar-fallback">${member.name.split(/\s+/).slice(0,2).map(x => x[0] || '').join('').toUpperCase() || 'US'}</span>`) : '<span class="identity-avatar identity-avatar-fallback">○</span>'}
-        <div class="identity-card-copy">
-          <strong>${member ? member.name : 'Invitado'}</strong>
-          <span>${member ? member.email : 'Inicia sesión para acceder a tu cuenta'}</span>
-        </div>
-        ${member ? '' : '<button class="identity-login" type="button" aria-label="Iniciar sesión">›</button>'}
-      </section>
-
       <section class="tv-home" aria-label="CPC TV">
         <div class="tv-channel-row">
-          <span class="tv-section-label">CPC TV</span>
           <label class="tv-channel-selector"><span>Canal</span><select id="cpcTvChannel" aria-label="Cambiar canal"><option value="digital">TV Digital Internet</option><option value="parrilla">Canal Parrilla</option></select></label>
         </div>
         <div class="tv-monitor">
@@ -137,7 +127,7 @@ function render(member) {
         <a class="module-card accent-orange" href="${URLS.gymEntrenamiento}"><span class="module-icon module-logo"><img src="${URLS.gymIcon}" alt="GYM Entrenamiento"></span><span class="module-copy"><strong>GYM ENTRENAMIENTO</strong><small>Acceso a entrenamiento</small></span><span class="arrow">›</span></a>
       </section>
     </main>
-    <footer class="app-footer"><div class="powered-by"><span>Powered by</span><img src="assets/logo_scad_hub.png" alt="SCaD HUB"></div><span class="version">v0.4.6 | 2026</span></footer>
+    <footer class="app-footer"><div class="powered-by"><span>Powered by</span><img src="assets/logo_scad_hub.png" alt="SCaD HUB"></div><span class="version">v0.4.7 | 2026</span></footer>
   </div>
   <div class="infospe-modal" id="infospeModal" hidden><div class="infospe-panel"><div class="infospe-panel-top"><div class="infospe-heading"><img src="assets/logo_infospe.png" alt="INFOSPE"><div><strong>INFOSPE - Seguridad Privada</strong><span>Curso Básico de Profesionalización</span></div></div><button class="infospe-close" type="button" aria-label="Cerrar">×</button></div><div class="infospe-content"><section class="infospe-info-block infospe-intro-layout"><div class="infospe-info-copy"><p>La normatividad en el Estado de Guanajuato establece la obligación a la empresas de seguridad privada que cumplan un programa de capacitación basado en la currícula que el INFOSPE establece.</p><p>Este requisito se cumple acreditando la aprobación del Curso Básico de Profesionalización en Materia de Seguridad Privada.</p><p>El curso es presencial con apoyo en plataformas digitales y sesiones virtuales.</p><p>El período de impartición del curso base se realiza en 15 semanas.</p><p>De acuerdo a los requerimientos de la empresa, se puede impartir el curso en períodos convenientes para el cliente.</p></div><div class="infospe-accreditation-inline"><strong>Acreditación</strong><a class="infospe-doc-thumb infospe-accreditation-thumb" href="${URLS.certificacionInfospe}" target="_blank" rel="noopener noreferrer" aria-label="Ver acreditación CPC INFOSPE"><span class="infospe-pdf-preview"><iframe src="${URLS.certificacionInfospe}#toolbar=0&navpanes=0&scrollbar=0&view=FitH" title="Vista previa de acreditación CPC INFOSPE" tabindex="-1"></iframe></span><span class="infospe-thumb-action">Ver documento</span></a></div></section><section class="infospe-commercial"><div class="infospe-commercial-row"><strong>Precio regular:</strong><p>$ 6,900.00 + IVA por persona.</p></div><div class="infospe-commercial-row infospe-commercial-long"><strong>Garantía de Inversión:</strong><div><p>La política de GARANTÍA DE INVERSIÓN consiste en que, si por cualquier motivo un participante inscrito no concluye el curso, se bonifica el pago realizado a favor de otro participante en el siguiente curso.</p><p>La validez de esta política de inversión está sujeta a que la inscripción del nuevo participante se realice en el curso inmediato y se inscriba de manera regular a otro participante. Aplica sólo en precio regular.</p><p>El pago se realiza al momento de la inscripción del guardia al curso.</p><p>En el caso de convenios de capacitación en grupos diferidos (inscripción de guardias en diferentes fechas), se realiza el pago del 20% a la firma del convenio y el 80% de cada guardia conforme se vayan inscribiendo. El primer grupo se paga al 100%.</p></div></div></section><section class="infospe-constancias"><h3>Constancias que emitimos</h3><p class="infospe-intro">Documentamos formalmente cada etapa del proceso de capacitación, brindando certeza a las empresas de seguridad privada y a su personal.</p><div class="infospe-cert-list">${constanciasHtml()}</div></section></div></div></div>`;
   bindUI(); initTvPlayer();
@@ -209,10 +199,9 @@ function initTvPlayer() {
 }
 
 function bindUI() {
-  const video = document.getElementById('cpcTvPlayer'); const expandTv = app.querySelector('.expand-tv'); const audioBtn = app.querySelector('.tv-audio-btn'); const identityLogin = app.querySelector('.identity-login'); const memberTrigger = app.querySelector('.member-trigger'); const memberMenu = app.querySelector('.member-menu'); const sessionBtn = app.querySelector('.session-btn'); const logoutBtn = app.querySelector('.logout-btn'); const infospeModule = app.querySelector('.infospe-module'); const infospeModal = document.getElementById('infospeModal'); const infospeClose = app.querySelector('.infospe-close');
+  const video = document.getElementById('cpcTvPlayer'); const expandTv = app.querySelector('.expand-tv'); const audioBtn = app.querySelector('.tv-audio-btn'); const memberTrigger = app.querySelector('.member-trigger'); const memberMenu = app.querySelector('.member-menu'); const sessionBtn = app.querySelector('.session-btn'); const logoutBtn = app.querySelector('.logout-btn'); const infospeModule = app.querySelector('.infospe-module'); const infospeModal = document.getElementById('infospeModal'); const infospeClose = app.querySelector('.infospe-close');
   audioBtn?.addEventListener('click', async () => { if (!video) return; const enableAudio = video.muted; video.muted = !enableAudio; video.defaultMuted = !enableAudio; try { await video.play(); } catch (_) {} audioBtn.setAttribute('aria-pressed', String(enableAudio)); audioBtn.textContent = enableAudio ? '🔊' : '🔇'; audioBtn.setAttribute('aria-label', enableAudio ? 'Silenciar' : 'Activar sonido'); audioBtn.title = enableAudio ? 'Silenciar' : 'Activar sonido'; });
   expandTv?.addEventListener('click', () => { const screen = document.getElementById('cpcTvScreen'); if (!screen) return; if (screen.requestFullscreen) screen.requestFullscreen().catch(() => {}); else if (video?.webkitEnterFullscreen) video.webkitEnterFullscreen(); });
-  identityLogin?.addEventListener('click', () => sessionBtn?.click());
   infospeModule?.addEventListener('click', () => { infospeModal.hidden = false; document.body.classList.add('modal-open'); });
   infospeClose?.addEventListener('click', () => { infospeModal.hidden = true; document.body.classList.remove('modal-open'); });
   infospeModal?.addEventListener('click', (event) => { if (event.target === infospeModal) { infospeModal.hidden = true; document.body.classList.remove('modal-open'); } });
