@@ -11,6 +11,66 @@ const MNS_CONTEXT = Object.freeze({
   mnsKey: 'MNS-RFRW2JY5BXMZ'
 });
 
+const CPC_CONTEXT_URL = 'https://www.scad.mx/_functions/cpcPwaContext';
+
+function pick(obj, paths) {
+  for (const path of paths) {
+    const value = path.split('.').reduce((acc, key) => acc?.[key], obj);
+    if (value !== undefined && value !== null && String(value).trim() !== '') return value;
+  }
+  return '';
+}
+
+async function getCpcMnsContext() {
+  const accessToken = await getAccessToken();
+  if (!accessToken) throw new Error('Inicia sesión para usar Mensajería.');
+
+  const memberRes = await fetch('https://www.wixapis.com/members/v1/members/my?fieldSet=FULL', {
+    headers: { Authorization: accessToken, 'Content-Type': 'application/json' },
+    cache: 'no-store'
+  });
+  const memberData = await memberRes.json().catch(() => ({}));
+  const memberId = String(memberData?.member?.id || '').trim();
+  if (!memberRes.ok || !memberId) throw new Error('No fue posible identificar al usuario CPC.');
+
+  const contextRes = await fetch(
+    CPC_CONTEXT_URL + '?memberId=' + encodeURIComponent(memberId) + '&t=' + Date.now(),
+    { cache: 'no-store' }
+  );
+  const context = await contextRes.json().catch(() => ({}));
+  if (!contextRes.ok || context?.ok !== true) {
+    throw new Error(context?.mensaje || 'No fue posible resolver el contexto CPC.');
+  }
+
+  const eoId = String(pick(context, [
+    'eo._id','eo.id','enteOperador._id','enteOperador.id',
+    'contexto.eo._id','contexto.eo.id','context.eo._id','context.eo.id',
+    'eoId','enteOperadorId'
+  ]) || '').trim();
+  const eoCodigo = String(pick(context, [
+    'eo.codigo','eo.code','enteOperador.codigo','enteOperador.code',
+    'contexto.eo.codigo','context.eo.codigo','eoCodigo','codigoEO'
+  ]) || '').trim();
+  const eoNombre = String(pick(context, [
+    'eo.nombre','eo.name','eo.nombreVisible',
+    'enteOperador.nombre','enteOperador.name','enteOperador.nombreVisible',
+    'contexto.eo.nombre','context.eo.nombre','eoNombre','nombreEO'
+  ]) || '').trim();
+
+  if (!eoId && !eoCodigo && !eoNombre) {
+    throw new Error('Falta identificar el Ente Operador MNS.');
+  }
+
+  return {
+    mnsKey: MNS_CONTEXT.mnsKey,
+    memberId,
+    eoId,
+    enteOperadorId: eoId,
+    eoCodigo,
+    eoNombre
+  };
+}
+
 function readTokens() {
   try { return JSON.parse(localStorage.getItem(TOKEN_KEY) || 'null'); }
   catch { return null; }
@@ -158,6 +218,8 @@ async function invokeMns(action, payload) {
     })
   });
 
+  const resolvedContext = await getCpcMnsContext();
+
   const response = await client.functions.post('mnsBridge', {
     headers: {
       'Content-Type': 'application/json'
@@ -166,7 +228,7 @@ async function invokeMns(action, payload) {
       action,
       payload: {
         ...(payload || {}),
-        mnsKey: MNS_CONTEXT.mnsKey
+        ...resolvedContext
       }
     })
   });
@@ -227,11 +289,21 @@ window.addEventListener('message', async event => {
 
   if (message.type === 'READY') {
     applyMnsUi053(frame);
-    frame.contentWindow.postMessage({
-      channel: CHANNEL,
-      type: 'CONTEXT',
-      payload: MNS_CONTEXT
-    }, window.location.origin);
+    try {
+      const resolvedContext = await getCpcMnsContext();
+      frame.contentWindow.postMessage({
+        channel: CHANNEL,
+        type: 'CONTEXT',
+        payload: resolvedContext
+      }, window.location.origin);
+    } catch (error) {
+      frame.contentWindow.postMessage({
+        channel: CHANNEL,
+        type: 'CONTEXT',
+        payload: MNS_CONTEXT
+      }, window.location.origin);
+      console.error('[CPC MNS] No fue posible resolver EO:', error);
+    }
     return;
   }
 
