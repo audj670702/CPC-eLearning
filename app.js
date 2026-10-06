@@ -1,5 +1,5 @@
 import { createClient, OAuthStrategy } from 'https://esm.sh/@wix/sdk';
-import { tvMarkup, initCpcTv } from './cpc-tv.js?v=0.5.18';
+import { tvMarkup, initCpcTv } from './cpc-tv.js?v=0.5.19';
 
 const app = document.getElementById('app');
 if (!app) throw new Error('No se encontró #app');
@@ -146,5 +146,15 @@ function bindUI() {
   logoutBtn?.addEventListener('click', async () => { try { logoutBtn.disabled = true; logoutBtn.textContent = 'Cerrando…'; const { logoutUrl } = await wixClient.auth.logout(WIX.redirectUri); clearSessionStorage(); window.location.href = logoutUrl; } catch (error) { console.error(error); clearSessionStorage(); window.location.href = WIX.redirectUri; } });
 }
 
-async function boot() { try { await finishOAuthCallbackIfNeeded(); const rawMember = await getCurrentMember(); render(normalizeMember(rawMember)); } catch (error) { console.error('CPC auth:', error); render(null); } }
+// Primera entrada SYS: con la sesión Wix validada, el backend vincula al alumno
+// (correo + acceso directo de la EO) y activa sus inscripciones en espera.
+// Independiente de cualquier módulo de la app.
+async function syncSysSession() {
+  const fresh = await ensureFreshTokens().catch(() => tokens);
+  const accessToken = fresh?.accessToken?.value || tokens?.accessToken?.value || '';
+  if (!accessToken) return;
+  await fetch(CPC_CONTEXT_URL + '?t=' + Date.now(), { cache: 'no-store', headers: { Authorization: accessToken } });
+}
+
+async function boot() { try { await finishOAuthCallbackIfNeeded(); const rawMember = await getCurrentMember(); if (rawMember) syncSysSession().catch((error) => console.warn('CPC primera entrada:', error)); render(normalizeMember(rawMember)); } catch (error) { console.error('CPC auth:', error); render(null); } }
 boot();
