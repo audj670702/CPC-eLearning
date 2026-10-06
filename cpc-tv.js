@@ -1,16 +1,16 @@
 // CPC · Módulo TV Capacitación · v0.5.15
 // Mismo modelo que NEXUS (js/tv.js): un monitor con dos canales.
 //   · "digital" → TV Digital Internet (HLS motortv.scad.mx).
-//   · "cpc"     → Canal CPC, configurado desde el Panel CPC. Llega en el contexto
+//   · "cpc"     → TV Capacitación (canal predeterminado), configurado desde el Panel CPC. Llega en el contexto
 //                 cpcPwaContext → tv { youtubeId, segundoInicio, modo, titulo }.
 // El canal CPC se consulta de nuevo cada POLL_MS mientras está al aire, para que
 // los cambios hechos en el Panel CPC lleguen a la app sin recargar.
 
 const TVDI_HLS = 'https://motortv.scad.mx/hls/canal.m3u8';
 const POLL_MS = 10000;
-const CHANNEL_NAMES = { digital: 'TV Digital Internet', cpc: 'CPC' };
+const CHANNEL_NAMES = { digital: 'TV Digital Internet', cpc: 'TV Capacitación' };
 // Etiquetas cortas de los botones de canal (como en NEXUS: una sola línea).
-const CHANNEL_BUTTONS = { digital: 'TV Digital', cpc: 'CPC' };
+const CHANNEL_BUTTONS = { digital: 'TV Digital', cpc: 'TV Capacitación' };
 
 const ICON_MUTED = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>';
 const ICON_SOUND = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>';
@@ -37,13 +37,13 @@ function esc(v = '') {
 // Marcado del monitor. app.js lo inserta dentro de la sección TV del inicio.
 export function tvMarkup() {
   return `<div class="tv-console">
-    <div id="tvMonitor" class="tv-monitor" data-channel="digital">
+    <div id="tvMonitor" class="tv-monitor" data-channel="cpc">
       <video id="tvVideo" autoplay muted playsinline preload="auto" aria-label="Canal en vivo"></video>
       <div id="tvFrameHost" class="tv-frame-host" hidden></div>
       <div id="tvMessage" class="tv-message" hidden></div>
     </div>
     <div class="tv-bar">
-      <span id="tvNowLabel" class="tv-now">${CHANNEL_NAMES.digital}</span>
+      <span id="tvNowLabel" class="tv-now">${CHANNEL_NAMES.cpc}</span>
       <button id="btnTvOptions" class="tv-options-trigger" type="button" aria-label="Opciones del monitor" aria-expanded="false" aria-controls="tvOptions">${ICON_OPTIONS}</button>
     </div>
     <div id="tvFsLayer" class="tv-fs-layer" hidden><button id="btnCloseTvFs" class="tv-fs-close" type="button" aria-label="Salir de pantalla completa">${ICON_CLOSE}</button></div>
@@ -51,8 +51,8 @@ export function tvMarkup() {
       <div class="tv-options-head"><strong>Monitor</strong><button id="btnTvOptionsClose" class="tv-options-close" type="button" aria-label="Cerrar">×</button></div>
       <span class="tv-options-label">Canal</span>
       <div class="tv-channels">
-        <button class="channel is-active" type="button" data-channel="digital" title="${CHANNEL_NAMES.digital}"><span>${CHANNEL_BUTTONS.digital}</span></button>
-        <button class="channel" type="button" data-channel="cpc"><span>${CHANNEL_BUTTONS.cpc}</span></button>
+        <button class="channel" type="button" data-channel="digital" title="${CHANNEL_NAMES.digital}"><span>${CHANNEL_BUTTONS.digital}</span></button>
+        <button class="channel is-active" type="button" data-channel="cpc" title="${CHANNEL_NAMES.cpc}"><span>${CHANNEL_BUTTONS.cpc}</span></button>
       </div>
       <div class="tv-options-actions">
         <button id="btnTvMute" class="tv-opt-btn" type="button"><span id="tvMuteIcon">${ICON_MUTED}</span><span id="tvMuteText">Activar sonido</span></button>
@@ -150,13 +150,13 @@ async function refreshCpc({ force = false } = {}) {
     renderCpcTransmission(force);
   } catch (error) {
     console.warn('[CPC TV] Canal CPC:', error);
-    if (force) { videoKey = ''; destroyHls(); show('message', error?.message || `No fue posible cargar el canal ${CHANNEL_NAMES.cpc}.`); }
+    if (force) { videoKey = ''; destroyHls(); show('message', error?.message || `No fue posible cargar ${CHANNEL_NAMES.cpc}.`); }
   }
 }
 
 function startCpc() {
   stopPolling();
-  if (!hasSession()) { videoKey = ''; destroyHls(); show('message', `Inicia sesión para ver el canal ${CHANNEL_NAMES.cpc}`); return; }
+  if (!hasSession()) { videoKey = ''; destroyHls(); show('message', `Inicia sesión para ver ${CHANNEL_NAMES.cpc}`); return; }
   if (tvContext) renderCpcTransmission(true);
   else show('message', `Sintonizando ${CHANNEL_NAMES.cpc}…`);
   refreshCpc({ force: !tvContext });
@@ -176,11 +176,20 @@ function setChannel(ch) {
 }
 
 // ---------- opciones del monitor ----------
-function setOptionsOpen(open) {
+// Como en NEXUS (back-nav.js): cada capa que se abre (menú de opciones o pantalla
+// completa) agrega un paso al historial; el botón Atrás del teléfono la cierra.
+// Si se cierra con su propio botón, se retira ese paso.
+let ignorePops = 0;
+function pushLayer(layer) { try { history.pushState({ cpcTv: layer }, '', location.href); } catch {} }
+function popLayer(layer) { if (history.state?.cpcTv === layer) { ignorePops++; try { history.back(); } catch { ignorePops--; } } }
+
+function setOptionsOpen(open, { fromHistory = false } = {}) {
   const o = $('#tvOptions'), t = $('#btnTvOptions');
-  if (!o) return;
+  if (!o || o.hidden === !open) return;
   o.hidden = !open;
   t?.setAttribute('aria-expanded', String(open));
+  if (open) pushLayer('options');
+  else if (!fromHistory) popLayer('options');
 }
 
 // ---------- audio ----------
@@ -209,7 +218,7 @@ function enterPseudoFullscreen() {
   const layer = $('#tvFsLayer');
   document.body.classList.add('tv-fs');
   if (layer) layer.hidden = false;
-  try { history.pushState({ cpcTvFs: true }, '', location.href); } catch {}
+  pushLayer('fs');
   try { screen.orientation?.lock?.('landscape').catch(() => {}); } catch {}
 }
 
@@ -219,7 +228,7 @@ function exitPseudoFullscreen({ fromHistory = false } = {}) {
   document.body.classList.remove('tv-fs');
   if (layer) layer.hidden = true;
   try { screen.orientation?.unlock?.(); } catch {}
-  if (!fromHistory && history.state?.cpcTvFs) { try { history.back(); } catch {} }
+  if (!fromHistory) popLayer('fs');
 }
 
 function toggleFullscreen() {
@@ -247,7 +256,7 @@ function toggleFullscreen() {
 // ---------- arranque ----------
 // options.loadContext: () => Promise<contexto cpcPwaContext> (con .tv).
 // options.hasSession:  () => boolean.
-// options.defaultChannel: 'cpc' | 'digital'.
+// options.defaultChannel: 'cpc' (TV Capacitación, predeterminado) | 'digital'.
 export function initCpcTv(options = {}) {
   loadContext = typeof options.loadContext === 'function' ? options.loadContext : null;
   hasSession = typeof options.hasSession === 'function' ? options.hasSession : () => false;
@@ -280,10 +289,14 @@ export function initCpcTv(options = {}) {
       if (document.body.classList.contains('tv-fs')) exitPseudoFullscreen();
       else setOptionsOpen(false);
     });
-    window.addEventListener('popstate', () => exitPseudoFullscreen({ fromHistory: true }));
+    window.addEventListener('popstate', () => {
+      if (ignorePops > 0) { ignorePops--; return; }
+      if (document.body.classList.contains('tv-fs')) exitPseudoFullscreen({ fromHistory: true });
+      else setOptionsOpen(false, { fromHistory: true });
+    });
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && channel === 'cpc') refreshCpc(); });
   }
 
   paintMute();
-  setChannel(options.defaultChannel === 'cpc' && hasSession() ? 'cpc' : 'digital');
+  setChannel(options.defaultChannel === 'digital' ? 'digital' : 'cpc');
 }

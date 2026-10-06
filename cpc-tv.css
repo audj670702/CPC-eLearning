@@ -79,7 +79,8 @@
 .tv-options-head strong { font-size: .82rem; }
 .tv-options-close { width: 28px; height: 28px; border: 0; border-radius: 8px; background: #f1f5fb; color: var(--tv-muted); font-size: 1rem; cursor: pointer; }
 .tv-options-label { font-size: .6rem; font-weight: 800; letter-spacing: .12em; color: var(--tv-muted); text-transform: uppercase; }
-.tv-channels { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); justify-content: center; gap: 3px; padding: 3px; background: #eef3fa; border-radius: 9px; }
+/* La segunda columna es un poco más ancha para que "TV Capacitación" quepa completo. */
+.tv-channels { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); justify-content: center; gap: 3px; padding: 3px; background: #eef3fa; border-radius: 9px; }
 .channel { min-height: 34px; min-width: 0; padding: 0 6px; border: 0; border-radius: 7px; background: transparent; color: var(--tv-muted); display: flex; align-items: center; justify-content: center; gap: 5px; font-size: .72rem; font-weight: 700; letter-spacing: -.01em; cursor: pointer; transition: background .15s ease, color .15s ease; }
 .channel span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .channel:hover { color: #205985; }

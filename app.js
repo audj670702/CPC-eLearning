@@ -117,7 +117,7 @@ function render(member) {
   bindUI(); initTv(member);
 }
 
-// TV Capacitación: canal "TV Digital Internet" + canal "CPC" configurado desde el Panel CPC.
+// Monitor TV: canal "TV Capacitación" (predeterminado, configurado desde el Panel CPC) + "TV Digital Internet".
 // El canal CPC se lee del contexto cpcPwaContext (campo tv) del miembro en sesión.
 async function loadCpcTvContext(memberId) {
   const url = CPC_CONTEXT_URL + '?memberId=' + encodeURIComponent(memberId) + '&t=' + Date.now();
@@ -132,7 +132,7 @@ function initTv(member) {
   initCpcTv({
     hasSession: () => !!memberId,
     loadContext: () => loadCpcTvContext(memberId),
-    defaultChannel: memberId ? 'cpc' : 'digital'
+    defaultChannel: 'cpc'
   });
 }
 
