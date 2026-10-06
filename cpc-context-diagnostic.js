@@ -100,7 +100,7 @@ async function loadContext() {
 
     const res = await fetch(
       CPC_CONTEXT_URL + '?memberId=' + encodeURIComponent(memberId) + '&t=' + Date.now(),
-      { cache: 'no-store' }
+      { cache: 'no-store', headers: { Authorization: accessToken } }
     );
     const data = await res.json().catch(() => null);
     if (!res.ok || !data?.ok) { paint(); return; }

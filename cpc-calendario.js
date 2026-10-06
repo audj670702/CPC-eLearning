@@ -87,19 +87,8 @@ async function calResolveUser(identity) {
     throw new Error('El usuario CPC está vinculado a otra identidad Wix.');
   }
 
-  if (!calClean(data.memberId)) {
-    await calFetch(`${CPC_CAL.patchItemUrl}/${encodeURIComponent(calItemId(item))}`, {
-      method: 'PATCH',
-      body: JSON.stringify({
-        dataCollectionId: CPC_CAL.collections.usuarios,
-        patch: {
-          dataItemId: calItemId(item),
-          fieldModifications: [{ fieldPath: 'memberId', action: 'SET_FIELD', setFieldOptions: { value: identity.memberId } }]
-        }
-      })
-    });
-    data.memberId = identity.memberId;
-  }
+  // La vinculación memberId ↔ CPC_Usuario la hace el backend (cpcPwaContext,
+  // primera entrada SYS). Aquí sólo se consulta.
   return item;
 }
 
