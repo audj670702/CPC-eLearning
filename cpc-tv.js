@@ -9,6 +9,8 @@
 const TVDI_HLS = 'https://motortv.scad.mx/hls/canal.m3u8';
 const POLL_MS = 10000;
 const CHANNEL_NAMES = { digital: 'TV Digital Internet', cpc: 'CPC' };
+// Etiquetas cortas de los botones de canal (como en NEXUS: una sola línea).
+const CHANNEL_BUTTONS = { digital: 'TV Digital', cpc: 'CPC' };
 
 const ICON_MUTED = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>';
 const ICON_SOUND = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>';
@@ -49,8 +51,8 @@ export function tvMarkup() {
       <div class="tv-options-head"><strong>Monitor</strong><button id="btnTvOptionsClose" class="tv-options-close" type="button" aria-label="Cerrar">×</button></div>
       <span class="tv-options-label">Canal</span>
       <div class="tv-channels">
-        <button class="channel is-active" type="button" data-channel="digital"><span>${CHANNEL_NAMES.digital}</span></button>
-        <button class="channel" type="button" data-channel="cpc"><span>${CHANNEL_NAMES.cpc}</span></button>
+        <button class="channel is-active" type="button" data-channel="digital" title="${CHANNEL_NAMES.digital}"><span>${CHANNEL_BUTTONS.digital}</span></button>
+        <button class="channel" type="button" data-channel="cpc"><span>${CHANNEL_BUTTONS.cpc}</span></button>
       </div>
       <div class="tv-options-actions">
         <button id="btnTvMute" class="tv-opt-btn" type="button"><span id="tvMuteIcon">${ICON_MUTED}</span><span id="tvMuteText">Activar sonido</span></button>
