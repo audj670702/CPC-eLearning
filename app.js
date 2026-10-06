@@ -1,5 +1,5 @@
 import { createClient, OAuthStrategy } from 'https://esm.sh/@wix/sdk';
-import { tvMarkup, initCpcTv } from './cpc-tv.js?v=0.5.15';
+import { tvMarkup, initCpcTv } from './cpc-tv.js?v=0.5.16';
 
 const app = document.getElementById('app');
 if (!app) throw new Error('No se encontró #app');
@@ -98,10 +98,10 @@ function render(member) {
   app.innerHTML = `<div class="app-shell">
     <header class="topbar"><div class="brand"><img src="assets/icon-192.png" alt="CPC"><strong>CPC e-Learning</strong></div><div class="top-actions">${sessionControl}</div></header>
     <main class="home-cpc">
-      <section class="tv-home" aria-label="TV Capacitación">
+      <div class="tv-home top-band">
+        <div class="top-band-left"><button class="install-btn tv-install-btn" type="button" disabled>Instalar app</button></div>
         ${tvMarkup()}
-        <button class="install-btn tv-install-btn" type="button" disabled>Instalar app</button>
-      </section>
+      </div>
       <section class="modules-section" aria-label="Accesos CPC e-Learning">
         <button class="module-card accent-blue" type="button"><span class="module-icon">✉</span><span class="module-copy"><strong>MENSAJERÍA</strong><small>Comunicación CPC</small></span><span class="arrow">›</span></button>
         <a class="module-card accent-navy" href="${member ? getMemberAreaUrl(member, URLS.misCursos) : '#'}" data-requires-member="true"><span class="module-icon">🧑‍💻</span><span class="module-copy"><strong>MIS CURSOS</strong><small>Programas en curso</small></span><span class="arrow">›</span></a>
@@ -129,11 +129,7 @@ async function loadCpcTvContext(memberId) {
 
 function initTv(member) {
   const memberId = String(member?.id || '').trim();
-  initCpcTv({
-    hasSession: () => !!memberId,
-    loadContext: () => loadCpcTvContext(memberId),
-    defaultChannel: 'cpc'
-  });
+  initCpcTv({ loadContext: memberId ? () => loadCpcTvContext(memberId) : null });
 }
 
 function bindUI() {

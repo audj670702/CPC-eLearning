@@ -18,11 +18,11 @@ Proyecto iniciado desde cero como aplicación independiente.
 
 Base técnica mínima para una PWA de CPC e-Learning. La integración con autenticación, Wix, CMS, progreso, contenidos y administración se incorporará conforme se cierre la arquitectura funcional.
 
-## Módulo TV Capacitación
+## Monitor TV
 
-`cpc-tv.js` + `cpc-tv.css`. Mismo modelo que NEXUS: un monitor con dos canales.
+`cpc-tv.js` + `cpc-tv.css` son una réplica del monitor de NEXUS (`js/tv.js`, `initTvOptions` de `js/modes.js`, `js/back-nav.js` y sus estilos). Es el modelo a replicar en otras apps.
 
-- **TV Digital Internet**: señal HLS `motortv.scad.mx/hls/canal.m3u8`.
-- **TV Capacitación** (predeterminado): se configura desde el Panel CPC y llega en `cpcPwaContext` → `tv` (`youtubeId`, `segundoInicio`, `modo`, `titulo`). Requiere sesión; se vuelve a consultar cada 10 s mientras el canal está al aire.
+- **TV Capacitación** (predeterminado): se configura desde el Panel CPC y llega en `cpcPwaContext` → `tv` (`youtubeId`, `segundoInicio`, `modo`, `titulo`). Requiere sesión; se vuelve a consultar cada 10 s mientras está al aire.
+- **TV Digital**: señal HLS `motortv.scad.mx/hls/canal.m3u8`.
 
-El monitor siempre abre en TV Capacitación (sin sesión pide iniciarla). El menú de opciones cambia de canal, activa el sonido y abre pantalla completa: API nativa en Android/escritorio/iPad; en iPhone, el reproductor nativo para TV Digital y pantalla completa dentro de la app para TV Capacitación. El botón Atrás cierra el menú y la pantalla completa, como en NEXUS.
+Pantalla completa como en NEXUS: API nativa (Android, escritorio, iPad); en iPhone, reproductor nativo para TV Digital y pantalla completa dentro de la app para TV Capacitación. El botón Atrás cierra el menú y la pantalla completa.
