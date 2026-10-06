@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cpc-elearning-v0.5.16-tv-nexus';
+const CACHE_NAME = 'cpc-elearning-v0.5.17-tv-digital';
 const APP_SHELL = [
   './',
   './index.html',

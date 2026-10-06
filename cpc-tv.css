@@ -1,4 +1,4 @@
-/* CPC · Monitor TV · v0.5.16
+/* CPC · Monitor TV · v0.5.17
    Réplica del monitor de NEXUS (css/nexus.css): valores efectivos de la franja superior
    (.top-band), el monitor, la barra, el menú de opciones y la pantalla completa. */
 .tv-home {
@@ -19,7 +19,6 @@
 .tv-monitor:fullscreen { width: 100vw; height: 100vh; border-radius: 0; }
 .tv-monitor:-webkit-full-screen { width: 100vw; height: 100vh; border-radius: 0; }
 .tv-monitor video, .tv-youtube-frame { position: absolute; inset: 0; width: 100%; height: 100%; display: block; border: 0; object-fit: contain; background: #071a33; }
-.tv-monitor > [hidden] { display: none !important; }
 .tv-placeholder { font-size: .68rem; font-weight: 800; opacity: .72; }
 .tv-screen-center { color: #cbd5e1; }
 
