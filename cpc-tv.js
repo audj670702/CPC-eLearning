@@ -1,4 +1,4 @@
-// CPC · Monitor TV · v0.5.16
+// CPC · Monitor TV · v0.5.17
 // Réplica del monitor de NEXUS. Fuentes de referencia en el repo nexus:
 //   js/tv.js        → reproducción, canales, sonido y pantalla completa (copiado tal cual).
 //   js/modes.js     → initTvOptions (menú de opciones del monitor).

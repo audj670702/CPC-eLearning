@@ -1,5 +1,5 @@
 import { createClient, OAuthStrategy } from 'https://esm.sh/@wix/sdk';
-import { tvMarkup, initCpcTv } from './cpc-tv.js?v=0.5.16';
+import { tvMarkup, initCpcTv } from './cpc-tv.js?v=0.5.17';
 
 const app = document.getElementById('app');
 if (!app) throw new Error('No se encontró #app');
