@@ -1,4 +1,5 @@
 import { createClient, OAuthStrategy } from 'https://esm.sh/@wix/sdk';
+import { tvMarkup, initCpcTv } from './cpc-tv.js?v=0.5.15';
 
 const app = document.getElementById('app');
 if (!app) throw new Error('No se encontró #app');
@@ -11,14 +12,8 @@ const URLS = {
   catalogoCursos: 'https://www.scad.mx/e-learning',
   gymEntrenamiento: 'https://gym.scad.mx/',
   gymIcon: 'assets/logo_gym.png',
-  hlsTv: 'https://motortv.scad.mx/hls/canal.m3u8',
   certificacionInfospe: 'assets/cpc_certificacion.pdf',
   scadHub: SCAD_SITE_URL
-};
-
-const TV_CHANNELS = {
-  digital: { tipo: 'hls', nombre: 'TV Digital Internet', url: URLS.hlsTv },
-  parrilla: { tipo: 'tv-scad', nombre: 'TV Capacitación', url: '' }
 };
 
 function withWixReturnUrl(rawUrl) {
@@ -103,20 +98,8 @@ function render(member) {
   app.innerHTML = `<div class="app-shell">
     <header class="topbar"><div class="brand"><img src="assets/icon-192.png" alt="CPC"><strong>CPC e-Learning</strong></div><div class="top-actions">${sessionControl}</div></header>
     <main class="home-cpc">
-      <section class="tv-home" aria-label="CPC TV">
-        <div class="tv-channel-row">
-          <label class="tv-channel-selector"><span>Canal</span><select id="cpcTvChannel" aria-label="Cambiar canal"><option value="digital">TV Digital Internet</option><option value="parrilla">TV Capacitación</option></select></label>
-        </div>
-        <div class="tv-monitor">
-          <div class="tv-controls">
-            <button class="tv-icon-button tv-audio-btn" type="button" aria-pressed="false" aria-label="Activar sonido" title="Activar sonido">🔇</button>
-            <button class="tv-icon-button expand-tv" type="button" aria-label="Ampliar CPC TV" title="Ampliar monitor">⛶</button>
-          </div>
-          <div class="tv-preview" id="cpcTvScreen">
-            <video id="cpcTvPlayer" autoplay muted playsinline preload="auto"></video>
-            <div id="cpcTvPlaceholder" class="tv-placeholder" hidden></div>
-          </div>
-        </div>
+      <section class="tv-home" aria-label="TV Capacitación">
+        ${tvMarkup()}
         <button class="install-btn tv-install-btn" type="button" disabled>Instalar app</button>
       </section>
       <section class="modules-section" aria-label="Accesos CPC e-Learning">
@@ -131,217 +114,30 @@ function render(member) {
     <footer class="app-footer"><div class="powered-by"><span>Powered by</span><img src="assets/logo_scad_hub.png" alt="SCaD HUB"></div><span class="version">v0.5.0 | 2026</span></footer>
   </div>
   <div class="infospe-modal" id="infospeModal" hidden><div class="infospe-panel"><div class="infospe-panel-top"><div class="infospe-heading"><img src="assets/logo_infospe.png" alt="INFOSPE"><div><strong>INFOSPE - Seguridad Privada</strong><span>Curso Básico de Profesionalización</span></div></div><button class="infospe-close" type="button" aria-label="Cerrar">×</button></div><div class="infospe-content"><section class="infospe-info-block infospe-intro-layout"><div class="infospe-info-copy"><p>La normatividad en el Estado de Guanajuato establece la obligación a la empresas de seguridad privada que cumplan un programa de capacitación basado en la currícula que el INFOSPE establece.</p><p>Este requisito se cumple acreditando la aprobación del Curso Básico de Profesionalización en Materia de Seguridad Privada.</p><p>El curso es presencial con apoyo en plataformas digitales y sesiones virtuales.</p><p>El período de impartición del curso base se realiza en 15 semanas.</p><p>De acuerdo a los requerimientos de la empresa, se puede impartir el curso en períodos convenientes para el cliente.</p></div><div class="infospe-accreditation-inline"><strong>Acreditación</strong><a class="infospe-doc-thumb infospe-accreditation-thumb" href="${URLS.certificacionInfospe}" target="_blank" rel="noopener noreferrer" aria-label="Ver acreditación CPC INFOSPE"><span class="infospe-pdf-preview"><iframe src="${URLS.certificacionInfospe}#toolbar=0&navpanes=0&scrollbar=0&view=FitH" title="Vista previa de acreditación CPC INFOSPE" tabindex="-1"></iframe></span><span class="infospe-thumb-action">Ver documento</span></a></div></section><section class="infospe-commercial"><div class="infospe-commercial-row"><strong>Precio regular:</strong><p>$ 6,900.00 + IVA por persona.</p></div><div class="infospe-commercial-row infospe-commercial-long"><strong>Garantía de Inversión:</strong><div><p>La política de GARANTÍA DE INVERSIÓN consiste en que, si por cualquier motivo un participante inscrito no concluye el curso, se bonifica el pago realizado a favor de otro participante en el siguiente curso.</p><p>La validez de esta política de inversión está sujeta a que la inscripción del nuevo participante se realice en el curso inmediato y se inscriba de manera regular a otro participante. Aplica sólo en precio regular.</p><p>El pago se realiza al momento de la inscripción del guardia al curso.</p><p>En el caso de convenios de capacitación en grupos diferidos (inscripción de guardias en diferentes fechas), se realiza el pago del 20% a la firma del convenio y el 80% de cada guardia conforme se vayan inscribiendo. El primer grupo se paga al 100%.</p></div></div></section><section class="infospe-constancias"><h3>Constancias que emitimos</h3><p class="infospe-intro">Documentamos formalmente cada etapa del proceso de capacitación, brindando certeza a las empresas de seguridad privada y a su personal.</p><div class="infospe-cert-list">${constanciasHtml()}</div></section></div></div></div>`;
-  bindUI(); initTvPlayer();
+  bindUI(); initTv(member);
 }
 
-let cpcTvContext = null;
-let cpcTvPollTimer = null;
-let cpcTvVideoKey = '';
-
-async function loadCpcTvContext() {
-  const member = await getCurrentMember();
-  const memberId = String(member?.id || '').trim();
-  if (!memberId) throw new Error('Debes iniciar sesión para ver TV Capacitación.');
-
+// TV Capacitación: canal "TV Digital Internet" + canal "CPC" configurado desde el Panel CPC.
+// El canal CPC se lee del contexto cpcPwaContext (campo tv) del miembro en sesión.
+async function loadCpcTvContext(memberId) {
   const url = CPC_CONTEXT_URL + '?memberId=' + encodeURIComponent(memberId) + '&t=' + Date.now();
   const response = await fetch(url, { cache: 'no-store' });
   const data = await response.json().catch(() => ({ ok: false, mensaje: 'HTTP ' + response.status }));
-
-  if (!response.ok || !data?.ok) {
-    throw new Error(data?.mensaje || ('Contexto CPC ' + response.status));
-  }
-
+  if (!response.ok || !data?.ok) throw new Error(data?.mensaje || ('Contexto CPC ' + response.status));
   return data;
 }
 
-function stopCpcTvPolling() {
-  if (cpcTvPollTimer) clearInterval(cpcTvPollTimer);
-  cpcTvPollTimer = null;
-}
-
-function cpcYoutubeEmbedUrl(tv) {
-  const id = String(tv?.youtubeId || '').trim();
-  if (!id) return '';
-
-  const start = Math.max(0, Math.floor(Number(tv?.segundoInicio) || 0));
-  const url = new URL('https://www.youtube.com/embed/' + encodeURIComponent(id));
-  const video = document.getElementById('cpcTvPlayer');
-
-  url.searchParams.set('autoplay', '1');
-  url.searchParams.set('mute', video?.muted === false ? '0' : '1');
-  url.searchParams.set('playsinline', '1');
-  url.searchParams.set('controls', '1');
-  url.searchParams.set('rel', '0');
-  url.searchParams.set('enablejsapi', '1');
-  url.searchParams.set('start', String(start));
-  url.searchParams.set('origin', location.origin);
-
-  return url.toString();
-}
-
-function renderCpcTvTransmission(force = false) {
-  const video = document.getElementById('cpcTvPlayer');
-  const placeholder = document.getElementById('cpcTvPlaceholder');
-  const tv = cpcTvContext?.tv || null;
-  const id = String(tv?.youtubeId || '').trim();
-
-  if (!video || !placeholder) return;
-
-  if (!id) {
-    cpcTvVideoKey = '';
-    destroyTvSource(video);
-    video.hidden = true;
-    placeholder.textContent = 'TV Capacitación · sin transmisión disponible';
-    placeholder.hidden = false;
-    return;
-  }
-
-  const key = String(tv?.modo || '') + ':' + id;
-  if (!force && cpcTvVideoKey === key) return;
-
-  cpcTvVideoKey = key;
-  destroyTvSource(video);
-  video.hidden = true;
-  placeholder.hidden = false;
-  placeholder.replaceChildren();
-
-  const frame = document.createElement('iframe');
-  frame.id = 'cpcTvYoutubeFrame';
-  frame.src = cpcYoutubeEmbedUrl(tv);
-  frame.title = String(tv?.titulo || 'TV Capacitación');
-  frame.style.width = '100%';
-  frame.style.height = '100%';
-  frame.style.border = '0';
-  frame.style.display = 'block';
-  frame.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
-  frame.allowFullscreen = true;
-  placeholder.appendChild(frame);
-}
-
-async function refreshCpcTvTransmission() {
-  const select = document.getElementById('cpcTvChannel');
-  if (select?.value !== 'parrilla') return;
-
-  try {
-    const fresh = await loadCpcTvContext();
-    const previous = String(cpcTvContext?.tv?.modo || '') + ':' + String(cpcTvContext?.tv?.youtubeId || '');
-    const next = String(fresh?.tv?.modo || '') + ':' + String(fresh?.tv?.youtubeId || '');
-
-    cpcTvContext = fresh;
-
-    if (previous !== next) {
-      renderCpcTvTransmission(true);
-    }
-  } catch (error) {
-    console.error('[CPC TV Capacitación]', error);
-  }
-}
-
-async function playCpcTvScad() {
-  const video = document.getElementById('cpcTvPlayer');
-  const placeholder = document.getElementById('cpcTvPlaceholder');
-
-  stopCpcTvPolling();
-
-  try {
-    cpcTvContext = await loadCpcTvContext();
-    renderCpcTvTransmission(true);
-    cpcTvPollTimer = setInterval(refreshCpcTvTransmission, 10000);
-  } catch (error) {
-    console.error('[CPC TV Capacitación]', error);
-
-    if (video) {
-      destroyTvSource(video);
-      video.hidden = true;
-    }
-
-    if (placeholder) {
-      placeholder.textContent = error?.message || 'No fue posible cargar TV Capacitación.';
-      placeholder.hidden = false;
-    }
-  }
-}
-
-function destroyTvSource(video) {
-  if (window.__cpcHls) {
-    window.__cpcHls.destroy();
-    window.__cpcHls = null;
-  }
-  video.pause();
-  video.removeAttribute('src');
-  video.load();
-}
-
-function playCpcHls(video, url) {
-  destroyTvSource(video);
-  video.muted = true;
-  video.defaultMuted = true;
-  video.playsInline = true;
-
-  if (video.canPlayType('application/vnd.apple.mpegurl')) {
-    video.src = url;
-    video.play().catch(() => {});
-    return;
-  }
-
-  if (window.Hls?.isSupported()) {
-    const hls = new window.Hls({
-      enableWorker: true,
-      lowLatencyMode: false,
-      backBufferLength: 30
-    });
-    hls.loadSource(url);
-    hls.attachMedia(video);
-    hls.on(window.Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
-    window.__cpcHls = hls;
-  }
-}
-
-function setCpcTvChannel(channel) {
-  const video = document.getElementById('cpcTvPlayer');
-  const placeholder = document.getElementById('cpcTvPlaceholder');
-  const channelName = document.getElementById('cpcTvChannelName');
-  if (!video) return;
-
-  const config = TV_CHANNELS[channel] || TV_CHANNELS.digital;
-  if (channelName) channelName.textContent = config.nombre;
-
-  if (config.tipo === 'hls') {
-    stopCpcTvPolling();
-    cpcTvVideoKey = '';
-    if (placeholder) {
-      placeholder.hidden = true;
-      placeholder.replaceChildren();
-    }
-    video.hidden = false;
-    playCpcHls(video, config.url);
-    return;
-  }
-
-  if (config.tipo === 'tv-scad') {
-    playCpcTvScad();
-    return;
-  }
-
-  stopCpcTvPolling();
-  destroyTvSource(video);
-  video.hidden = true;
-  if (placeholder) {
-    placeholder.textContent = 'Canal no disponible';
-    placeholder.hidden = false;
-  }
-}
-
-function initTvPlayer() {
-  const select = document.getElementById('cpcTvChannel');
-  select?.addEventListener('change', (event) => { event.stopPropagation(); setCpcTvChannel(event.target.value); });
-  setCpcTvChannel('digital');
+function initTv(member) {
+  const memberId = String(member?.id || '').trim();
+  initCpcTv({
+    hasSession: () => !!memberId,
+    loadContext: () => loadCpcTvContext(memberId),
+    defaultChannel: memberId ? 'cpc' : 'digital'
+  });
 }
 
 function bindUI() {
-  const video = document.getElementById('cpcTvPlayer'); const expandTv = app.querySelector('.expand-tv'); const audioBtn = app.querySelector('.tv-audio-btn'); const memberTrigger = app.querySelector('.member-trigger'); const memberMenu = app.querySelector('.member-menu'); const sessionBtn = app.querySelector('.session-btn'); const logoutBtn = app.querySelector('.logout-btn'); const infospeModule = app.querySelector('.infospe-module'); const infospeModal = document.getElementById('infospeModal'); const infospeClose = app.querySelector('.infospe-close');
-  audioBtn?.addEventListener('click', async (event) => { event.preventDefault(); event.stopPropagation(); if (!video) return; const enableAudio = video.muted; video.muted = !enableAudio; video.defaultMuted = !enableAudio; const frame = document.getElementById('cpcTvYoutubeFrame'); if (frame?.contentWindow) frame.contentWindow.postMessage(JSON.stringify({ event: 'command', func: enableAudio ? 'unMute' : 'mute', args: [] }), 'https://www.youtube.com'); try { await video.play(); } catch (_) {} audioBtn.setAttribute('aria-pressed', String(enableAudio)); audioBtn.textContent = enableAudio ? '🔊' : '🔇'; audioBtn.setAttribute('aria-label', enableAudio ? 'Silenciar' : 'Activar sonido'); audioBtn.title = enableAudio ? 'Silenciar' : 'Activar sonido'; });
-  expandTv?.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); const screen = document.getElementById('cpcTvScreen'); if (!screen) return; if (screen.requestFullscreen) screen.requestFullscreen().catch(() => {}); else if (video?.webkitEnterFullscreen) video.webkitEnterFullscreen(); });
+  const memberTrigger = app.querySelector('.member-trigger'); const memberMenu = app.querySelector('.member-menu'); const sessionBtn = app.querySelector('.session-btn'); const logoutBtn = app.querySelector('.logout-btn'); const infospeModule = app.querySelector('.infospe-module'); const infospeModal = document.getElementById('infospeModal'); const infospeClose = app.querySelector('.infospe-close');
   infospeModule?.addEventListener('click', () => { infospeModal.hidden = false; document.body.classList.add('modal-open'); });
   infospeClose?.addEventListener('click', () => { infospeModal.hidden = true; document.body.classList.remove('modal-open'); });
   infospeModal?.addEventListener('click', (event) => { if (event.target === infospeModal) { infospeModal.hidden = true; document.body.classList.remove('modal-open'); } });

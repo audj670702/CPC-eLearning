@@ -1,0 +1,101 @@
+/* CPC · Módulo TV Capacitación · v0.5.15
+   Mismo modelo visual que NEXUS: monitor, barra con canal al aire y menú de opciones. */
+.tv-home {
+  --tv-ink: #12335c;
+  --tv-primary: #0d58b7;
+  --tv-muted: #6b7a8f;
+  --tv-line: #dbe4ef;
+}
+.tv-console {
+  position: relative;
+  width: 190px;
+  margin-left: auto;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid var(--tv-line);
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(18, 43, 77, .08);
+}
+.tv-monitor {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #071a33;
+  color: #cbd5e1;
+}
+.tv-monitor video,
+.tv-frame-host,
+.tv-youtube-frame,
+.tv-message {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  border: 0;
+}
+.tv-monitor video { object-fit: contain; background: #071a33; }
+.tv-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  text-align: center;
+  font-size: .58rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #cbd5e1;
+}
+.tv-monitor [hidden] { display: none !important; }
+.tv-monitor:fullscreen,
+.tv-monitor:-webkit-full-screen { width: 100vw; height: 100vh; border-radius: 0; background: #000; }
+
+.tv-bar { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 5px 2px 1px 4px; }
+.tv-now { min-width: 0; font-size: .62rem; font-weight: 700; color: var(--tv-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tv-options-trigger { width: 28px; height: 28px; flex: 0 0 auto; padding: 0; border: 1px solid var(--tv-line); border-radius: 8px; background: #fff; color: var(--tv-primary); display: grid; place-items: center; cursor: pointer; }
+.tv-options-trigger[aria-expanded="true"] { background: var(--tv-primary); border-color: var(--tv-primary); color: #fff; }
+
+.tv-options {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 60;
+  width: 236px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid var(--tv-line);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(18, 43, 77, .18);
+  color: var(--tv-ink);
+}
+.tv-options[hidden] { display: none; }
+.tv-options-head { display: flex; align-items: center; justify-content: space-between; }
+.tv-options-head strong { font-size: .82rem; }
+.tv-options-close { width: 28px; height: 28px; border: 0; border-radius: 8px; background: #f1f5fb; color: var(--tv-muted); font-size: 1rem; cursor: pointer; }
+.tv-options-label { font-size: .6rem; font-weight: 800; letter-spacing: .12em; color: var(--tv-muted); text-transform: uppercase; }
+.tv-channels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; padding: 3px; background: #eef3fa; border-radius: 9px; }
+.channel { min-height: 38px; min-width: 0; padding: 4px 6px; border: 0; border-radius: 7px; background: transparent; color: var(--tv-muted); font-size: .7rem; font-weight: 700; line-height: 1.15; cursor: pointer; }
+.channel:hover { color: var(--tv-primary); }
+.channel.is-active { background: var(--tv-primary); color: #fff; }
+.tv-options-actions { display: flex; flex-direction: column; gap: 2px; padding-top: 6px; border-top: 1px solid #edf2f9; }
+.tv-opt-btn { height: 40px; padding: 0 8px; border: 0; border-radius: 9px; background: transparent; color: var(--tv-ink); display: flex; align-items: center; gap: 10px; font-size: .78rem; font-weight: 600; text-align: left; cursor: pointer; }
+.tv-opt-btn:hover { background: #f3f7fc; }
+.tv-opt-btn svg, #tvMuteIcon svg { display: block; color: var(--tv-primary); }
+#tvMuteIcon { display: inline-grid; }
+
+/* Pantalla completa dentro de la app (iPhone con canal YouTube). */
+.tv-fs-layer { position: fixed; inset: 0; z-index: 10000; background: transparent; pointer-events: none; }
+.tv-fs-layer[hidden] { display: none; }
+.tv-fs-close { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 12px); right: calc(env(safe-area-inset-right, 0px) + 12px); z-index: 10001; width: 44px; height: 44px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .18); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; pointer-events: auto; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+body.tv-fs { overflow: hidden; }
+body.tv-fs .tv-monitor { position: fixed !important; inset: 0; z-index: 9999; width: 100vw !important; height: 100vh; height: 100dvh; aspect-ratio: auto; border-radius: 0 !important; background: #000; }
+
+@media (max-width: 560px) {
+  .tv-console { width: 168px; }
+  .tv-now { font-size: .58rem; }
+}
