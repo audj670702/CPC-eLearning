@@ -1,5 +1,5 @@
 import { createClient, OAuthStrategy } from 'https://esm.sh/@wix/sdk';
-import { tvMarkup, initCpcTv } from './cpc-tv.js?v=0.5.17';
+import { tvMarkup, initCpcTv } from './cpc-tv.js?v=0.5.18';
 
 const app = document.getElementById('app');
 if (!app) throw new Error('No se encontró #app');
@@ -120,8 +120,12 @@ function render(member) {
 // Monitor TV: canal "TV Capacitación" (predeterminado, configurado desde el Panel CPC) + "TV Digital Internet".
 // El canal CPC se lee del contexto cpcPwaContext (campo tv) del miembro en sesión.
 async function loadCpcTvContext(memberId) {
+  // La identidad la valida el backend con la sesión Wix (Authorization);
+  // memberId en la URL sólo se conserva por compatibilidad.
+  const fresh = await ensureFreshTokens().catch(() => tokens);
+  const accessToken = fresh?.accessToken?.value || tokens?.accessToken?.value || '';
   const url = CPC_CONTEXT_URL + '?memberId=' + encodeURIComponent(memberId) + '&t=' + Date.now();
-  const response = await fetch(url, { cache: 'no-store' });
+  const response = await fetch(url, { cache: 'no-store', headers: accessToken ? { Authorization: accessToken } : {} });
   const data = await response.json().catch(() => ({ ok: false, mensaje: 'HTTP ' + response.status }));
   if (!response.ok || !data?.ok) throw new Error(data?.mensaje || ('Contexto CPC ' + response.status));
   return data;
