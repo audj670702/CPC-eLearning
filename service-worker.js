@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cpc-elearning-v0.5.0-mis-cursos-wix';
+const CACHE_NAME = 'cpc-elearning-v0.5.16-tv-nexus';
 const APP_SHELL = [
   './',
   './index.html',

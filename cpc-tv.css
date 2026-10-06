@@ -1,0 +1,59 @@
+/* CPC · Monitor TV · v0.5.16
+   Réplica del monitor de NEXUS (css/nexus.css): valores efectivos de la franja superior
+   (.top-band), el monitor, la barra, el menú de opciones y la pantalla completa. */
+.tv-home {
+  --tv-ink: #132b4d;
+  --tv-muted: #657a9b;
+  --tv-line: #d5e0f1;
+  --tv-primary: #123f6d;
+  --tv-shadow: 0 5px 18px rgba(18, 63, 109, .07);
+}
+
+/* Franja superior: el monitor ocupa un tercio (máx. 300 px) a la derecha. */
+.top-band { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) min(34%, 300px); gap: 12px; align-items: start; padding: 0 0 6px; margin-bottom: 8px; }
+.top-band-left { min-width: 0; align-self: stretch; }
+
+.tv-section { position: static; margin: 0; display: block; }
+.tv-console { position: relative; width: 100%; background: #fff; border: 1px solid var(--tv-line); border-radius: 12px; padding: 4px; box-shadow: var(--tv-shadow); }
+.tv-monitor { position: relative; aspect-ratio: 16 / 9; width: 100%; display: grid; place-items: center; background: #071a33; border-radius: 8px; overflow: hidden; color: #cbd5e1; }
+.tv-monitor:fullscreen { width: 100vw; height: 100vh; border-radius: 0; }
+.tv-monitor:-webkit-full-screen { width: 100vw; height: 100vh; border-radius: 0; }
+.tv-monitor video, .tv-youtube-frame { position: absolute; inset: 0; width: 100%; height: 100%; display: block; border: 0; object-fit: contain; background: #071a33; }
+.tv-monitor > [hidden] { display: none !important; }
+.tv-placeholder { font-size: .68rem; font-weight: 800; opacity: .72; }
+.tv-screen-center { color: #cbd5e1; }
+
+.tv-bar { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 5px 2px 1px 4px; }
+.tv-now { min-width: 0; font-size: .62rem; font-weight: 700; color: var(--tv-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tv-options-trigger { width: 28px; height: 28px; flex: 0 0 auto; border: 1px solid var(--tv-line); border-radius: 8px; background: #fff; color: var(--tv-primary); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.tv-options-trigger[aria-expanded="true"] { background: var(--tv-primary); color: #fff; border-color: var(--tv-primary); }
+
+/* Menú de opciones del monitor */
+.tv-options { position: absolute; top: calc(100% + 6px); right: 0; width: 230px; z-index: 60; background: #fff; border: 1px solid var(--tv-line); border-radius: 14px; box-shadow: 0 16px 40px rgba(18, 43, 77, .18); padding: 12px; display: flex; flex-direction: column; align-items: stretch; gap: 8px; color: var(--tv-ink); }
+.tv-options[hidden] { display: none; }
+.tv-options-head { width: 100%; display: flex; align-items: center; justify-content: space-between; }
+.tv-options-head strong { font-size: .82rem; }
+.tv-options-close { width: 28px; height: 28px; border: 0; border-radius: 8px; background: #f1f5fb; color: var(--tv-muted); font-size: 1rem; cursor: pointer; }
+.tv-options-label { font-size: .6rem; font-weight: 800; letter-spacing: .12em; color: var(--tv-muted); text-transform: uppercase; }
+/* Segunda columna un poco más ancha para que "TV Capacitación" quepa completo. */
+.tv-options .tv-channels { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 3px; background: #eef3fa; border-radius: 9px; padding: 3px; }
+.tv-options .channel { min-height: 34px; min-width: 0; border: 0; border-radius: 7px; background: transparent; color: var(--tv-muted); font-size: .72rem; font-weight: 700; letter-spacing: -.01em; padding: 0 6px; display: flex; align-items: center; justify-content: center; gap: 5px; cursor: pointer; transition: background .15s ease, color .15s ease; }
+.tv-options .channel:hover { color: #205985; }
+.tv-options .channel.is-active { background: var(--tv-primary); color: #fff; }
+.tv-options .channel span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-options-actions { display: flex; flex-direction: column; gap: 2px; border-top: 1px solid #edf2f9; padding-top: 6px; }
+.tv-opt-btn { width: 100%; height: 40px; margin: 0; border: 0; border-radius: 9px; background: transparent; color: var(--tv-ink); display: flex; align-items: center; justify-content: flex-start; gap: 10px; padding: 0 2px; font-size: .78rem; font-weight: 600; white-space: nowrap; cursor: pointer; text-align: left; box-shadow: none; }
+.tv-opt-btn span { font-size: .78rem; font-weight: 600; display: inline; }
+.tv-opt-btn:hover { background: #f3f7fc; }
+.tv-opt-btn svg, #tvMuteIcon svg { color: var(--tv-primary); display: block; }
+#tvMuteIcon { display: inline-grid; place-items: center; }
+
+/* Pantalla completa dentro de la app (iPhone con TV Capacitación). */
+.tv-fs-layer { position: fixed; inset: 0; z-index: 10000; background: transparent; pointer-events: none; }
+.tv-fs-layer[hidden] { display: none; }
+.tv-fs-close { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 12px); right: calc(env(safe-area-inset-right, 0px) + 12px); z-index: 10000; width: 44px; height: 44px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .18); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; pointer-events: auto; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+body.tv-fs { overflow: hidden; }
+body.tv-fs .tv-monitor { position: fixed !important; inset: 0; z-index: 9999; width: 100vw !important; height: 100vh; height: 100dvh; max-width: none; aspect-ratio: auto; border-radius: 0 !important; background: #000; }
+body.tv-fs .tv-monitor > * { grid-area: 1 / 1; }
+/* La barra superior de CPC es sticky con desenfoque: se oculta para que no tape el monitor. */
+body.tv-fs .topbar { visibility: hidden; }
