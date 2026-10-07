@@ -33,7 +33,7 @@ async function loadCpcContext() {
   const memberData = await memberRes.json().catch(() => ({}));
   const memberId = String(memberData?.member?.id || '').trim();
   if (!memberRes.ok || !memberId) throw new Error('No fue posible identificar al usuario CPC.');
-  const r = await fetch(`${CPC_CONTEXT_URL}?memberId=${encodeURIComponent(memberId)}&t=${Date.now()}`, { cache:'no-store' });
+  const r = await fetch(`${CPC_CONTEXT_URL}?t=${Date.now()}`, { cache:'no-store', headers: { 'X-CPC-Session': accessToken } });
   const data = await r.json().catch(() => ({}));
   if (!r.ok || !data?.ok) throw new Error(data?.mensaje || `Contexto CPC ${r.status}`);
   return data;

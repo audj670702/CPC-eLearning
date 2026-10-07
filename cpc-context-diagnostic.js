@@ -99,8 +99,8 @@ async function loadContext() {
     state.se = 1;
 
     const res = await fetch(
-      CPC_CONTEXT_URL + '?memberId=' + encodeURIComponent(memberId) + '&t=' + Date.now(),
-      { cache: 'no-store', headers: {} }
+      CPC_CONTEXT_URL + '?t=' + Date.now(),
+      { cache: 'no-store', headers: { 'X-CPC-Session': accessToken } }
     );
     const data = await res.json().catch(() => null);
     if (!res.ok || !data?.ok) { paint(); return; }

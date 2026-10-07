@@ -1,5 +1,5 @@
 import { createClient, OAuthStrategy } from 'https://esm.sh/@wix/sdk';
-import { tvMarkup, initCpcTv } from './cpc-tv.js?v=0.5.21';
+import { tvMarkup, initCpcTv } from './cpc-tv.js?v=0.5.22';
 
 const app = document.getElementById('app');
 if (!app) throw new Error('No se encontró #app');
@@ -119,12 +119,13 @@ function render(member) {
 
 // Monitor TV: canal "TV Capacitación" (predeterminado, configurado desde el Panel CPC) + "TV Digital Internet".
 // El canal CPC se lee del contexto cpcPwaContext (campo tv) del miembro en sesión.
-async function loadCpcTvContext(memberId) {
-  // Sólo consulta: no envía la sesión, así no dispara la primera entrada.
-  // Espera a que el arranque de sesión termine para leer el contexto ya vinculado.
+async function loadCpcTvContext() {
+  // Sólo consulta (sin ?primeraEntrada=1). Espera a que termine el arranque de sesión.
   await sysSessionReady.catch(() => null);
-  const url = CPC_CONTEXT_URL + '?memberId=' + encodeURIComponent(memberId) + '&t=' + Date.now();
-  const response = await fetch(url, { cache: 'no-store' });
+  const fresh = await ensureFreshTokens().catch(() => tokens);
+  const accessToken = fresh?.accessToken?.value || tokens?.accessToken?.value || '';
+  if (!accessToken) throw new Error('Inicia sesión para continuar.');
+  const response = await fetch(CPC_CONTEXT_URL + '?t=' + Date.now(), { cache: 'no-store', headers: { 'X-CPC-Session': accessToken } });
   const data = await response.json().catch(() => ({ ok: false, mensaje: 'HTTP ' + response.status }));
   if (!response.ok || !data?.ok) throw new Error(data?.mensaje || ('Contexto CPC ' + response.status));
   return data;
@@ -132,7 +133,7 @@ async function loadCpcTvContext(memberId) {
 
 function initTv(member) {
   const memberId = String(member?.id || '').trim();
-  initCpcTv({ loadContext: memberId ? () => loadCpcTvContext(memberId) : null });
+  initCpcTv({ loadContext: memberId ? () => loadCpcTvContext() : null });
 }
 
 function bindUI() {
@@ -153,7 +154,7 @@ async function syncSysSession() {
   const fresh = await ensureFreshTokens().catch(() => tokens);
   const accessToken = fresh?.accessToken?.value || tokens?.accessToken?.value || '';
   if (!accessToken) return;
-  await fetch(CPC_CONTEXT_URL + '?t=' + Date.now(), { cache: 'no-store', headers: { 'X-CPC-Session': accessToken } });
+  await fetch(CPC_CONTEXT_URL + '?primeraEntrada=1&t=' + Date.now(), { cache: 'no-store', headers: { 'X-CPC-Session': accessToken } });
 }
 
 async function boot() { try { await finishOAuthCallbackIfNeeded(); const rawMember = await getCurrentMember(); if (rawMember) { sysSessionReady = syncSysSession().catch((error) => console.warn('CPC primera entrada:', error)); } render(normalizeMember(rawMember)); } catch (error) { console.error('CPC auth:', error); render(null); } }
