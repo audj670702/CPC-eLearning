@@ -80,7 +80,7 @@ button { color: inherit; }
 
 .modules-section { display: grid; gap: 9px; }
 .module-card {
-  position: relative; min-height: 78px; width: 100%; padding: 10px 14px 10px 17px;
+  position: relative; min-height: 60px; width: 100%; padding: 7px 14px 7px 17px;
   display: flex; align-items: center; gap: 12px; overflow: hidden;
   text-align: left; text-decoration: none; background: #fff; color: #12335c;
   border: 1px solid #d9e2ed; border-radius: 18px;
@@ -88,13 +88,13 @@ button { color: inherit; }
 }
 .module-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: var(--accent); }
 .module-card:active { transform: scale(.99); }
-.module-icon { width: 38px; flex: 0 0 38px; text-align: center; color: var(--accent); font-size: 1.45rem; font-weight: 700; }
+.module-icon { width: 34px; flex: 0 0 34px; text-align: center; color: var(--accent); font-size: 1.3rem; font-weight: 700; }
 .module-logo { display: flex; align-items: center; justify-content: center; }
-.module-logo img { width: 38px; height: 38px; object-fit: contain; display: block; }
+.module-logo img { width: 34px; height: 34px; object-fit: contain; display: block; }
 .module-copy { min-width: 0; flex: 1; }
 .module-copy strong, .module-copy small { display: block; }
 .module-copy strong { color: #12335c; font-size: .83rem; letter-spacing: .035em; line-height: 1.15; }
-.module-copy small { margin-top: 4px; color: #687b93; font-size: .68rem; line-height: 1.2; }
+.module-copy small { margin-top: 2px; color: #687b93; font-size: .68rem; line-height: 1.2; }
 .arrow { color: #11598f; font-size: 1.8rem; font-weight: 300; line-height: 1; }
 .accent-blue { --accent: #1768c4; }
 .accent-navy { --accent: #24539a; }
@@ -177,7 +177,7 @@ button { color: inherit; }
   .brand strong { font-size: .88rem; }
   .brand img { width: 43px; height: 43px; }
   .home-cpc { padding: 11px; }
-  .module-card { min-height: 74px; }
+  .module-card { min-height: 58px; }
   .member-name { max-width: 82px; }
   .infospe-modal { padding: 0; }
   .infospe-panel { max-height: 100vh; min-height: 100vh; border-radius: 0; border: 0; }
@@ -197,7 +197,7 @@ button { color: inherit; }
 @media (min-width: 720px) {
   .topbar { padding: 9px 24px; }
   .home-cpc { padding: 18px 20px; }
-  .module-card { min-height: 82px; }
+  .module-card { min-height: 64px; }
   .app-footer { padding: 24px 20px 16px; }
 }
 /* Identidad SYS (avatar) y Editar perfil · v0.5.23 */
@@ -232,3 +232,22 @@ button { color: inherit; }
 .profile-button.secondary { border: 1px solid #d9e2ed; background: #fff; color: #12335c; }
 .profile-button.primary { border: 1px solid #12335c; background: #12335c; color: #fff; }
 .profile-button:disabled { opacity: .55; cursor: default; }
+
+/* v0.5.24 · Menú hamburguesa y tarjeta de identidad */
+.menu-trigger { width: 40px; height: 40px; min-height: 40px; padding: 0; justify-content: center; border-radius: 12px; }
+.menu-icon { display: grid; gap: 4px; }
+.menu-icon span { display: block; width: 18px; height: 2px; border-radius: 2px; background: #12335c; }
+.top-band-left { display: flex; flex-direction: column; justify-content: space-between; gap: 10px; }
+.identity-card { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 4px 2px; }
+.identity-avatar-wrap { position: relative; flex: 0 0 auto; }
+.identity-avatar { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; display: grid; place-items: center; background: #eaf0f7; border: 2px solid #fff; box-shadow: 0 3px 10px rgba(31,59,91,.15); }
+.identity-initials { color: #24539a; font-weight: 800; font-size: 1.1rem; letter-spacing: .02em; }
+.identity-edit { position: absolute; right: -2px; bottom: -2px; width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; background: #12335c; color: #fff; display: grid; place-items: center; padding: 0; cursor: pointer; box-shadow: 0 2px 6px rgba(18,51,92,.3); }
+.identity-edit svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.identity-copy { min-width: 0; display: grid; gap: 3px; }
+.identity-name { color: #12335c; font-size: .86rem; font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
+.identity-email { color: #718096; font-size: .64rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 560px) {
+  .identity-avatar { width: 54px; height: 54px; }
+  .identity-name { font-size: .78rem; }
+}

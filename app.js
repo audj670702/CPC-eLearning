@@ -1,5 +1,5 @@
 import { createClient, OAuthStrategy } from 'https://esm.sh/@wix/sdk';
-import { tvMarkup, initCpcTv } from './cpc-tv.js?v=0.5.23';
+import { tvMarkup, initCpcTv } from './cpc-tv.js?v=0.5.24';
 
 const app = document.getElementById('app');
 if (!app) throw new Error('No se encontró #app');
@@ -14,7 +14,7 @@ let sysProfile = null;
 let currentMemberData = null;
 function initialsOf(name) { const p = String(name || '').trim().split(/\s+/).filter(Boolean); return (((p[0] || '')[0] || '') + ((p[1] || '')[0] || '')).toUpperCase() || '·'; }
 function identityName(member) { return (sysProfile?.ok && sysProfile.nombreVisible) || member?.name || 'Usuario'; }
-function identityAvatarHtml(member, cls = 'member-avatar') { const url = sysProfile?.ok ? sysProfile.avatar : ''; return url ? `<img class="${cls}" src="${url}" alt="">` : `<span class="${cls} member-initials">${initialsOf(identityName(member))}</span>`; }
+function identityAvatarHtml(member, cls = 'identity-avatar') { const url = sysProfile?.ok ? sysProfile.avatar : ''; return url ? `<img class="${cls}" src="${url}" alt="">` : `<span class="${cls} identity-initials">${initialsOf(identityName(member))}</span>`; }
 
 const URLS = {
   misCursos: 'challenges',
@@ -103,13 +103,13 @@ function constanciasHtml() {
 
 function render(member) {
   currentMemberData = member;
-  const sessionControl = member ? `<div class="member-control"><button class="member-trigger" type="button" aria-expanded="false"><span class="member-identity-avatar">${identityAvatarHtml(member)}</span><span class="member-name">${identityName(member)}</span><span class="member-chevron">⌄</span></button><nav class="member-menu" aria-label="Cuenta SCaD" hidden><span class="member-email">${member.email}</span><button class="member-menu-link profile-open-btn" type="button">Editar perfil</button><a class="member-menu-link" href="${getMemberAreaUrl(member, 'my-account')}">Mi Perfil SCaD</a><a class="member-menu-link" href="${getMemberAreaUrl(member, 'my-subscriptions')}">Mis suscripciones</a><a class="member-menu-link" href="${getMemberAreaUrl(member, 'my-wallet')}">Mis formas de pago</a><a class="member-menu-link" href="${getMemberAreaUrl(member, 'my-groups')}">Mis grupos</a><a class="member-menu-link" href="${withWixReturnUrl(URLS.scadHub)}">SCaD HUB</a><div class="member-menu-separator" aria-hidden="true"></div><button class="logout-btn" type="button">Cerrar sesión</button></nav></div>` : '<button class="session-btn" type="button">Iniciar sesión</button>';
+  const sessionControl = member ? `<div class="member-control"><button class="member-trigger menu-trigger" type="button" aria-expanded="false" aria-label="Menú"><span class="menu-icon" aria-hidden="true"><span></span><span></span><span></span></span></button><nav class="member-menu" aria-label="Cuenta SCaD" hidden><span class="member-email">${member.email}</span><button class="member-menu-link profile-open-btn" type="button">Editar perfil</button><a class="member-menu-link" href="${getMemberAreaUrl(member, 'my-account')}">Mi Perfil SCaD</a><a class="member-menu-link" href="${getMemberAreaUrl(member, 'my-subscriptions')}">Mis suscripciones</a><a class="member-menu-link" href="${getMemberAreaUrl(member, 'my-wallet')}">Mis formas de pago</a><a class="member-menu-link" href="${getMemberAreaUrl(member, 'my-groups')}">Mis grupos</a><a class="member-menu-link" href="${withWixReturnUrl(URLS.scadHub)}">SCaD HUB</a><div class="member-menu-separator" aria-hidden="true"></div><button class="logout-btn" type="button">Cerrar sesión</button></nav></div>` : '<button class="session-btn" type="button">Iniciar sesión</button>';
 
   app.innerHTML = `<div class="app-shell">
     <header class="topbar"><div class="brand"><img src="assets/icon-192.png" alt="CPC"><strong>CPC e-Learning</strong></div><div class="top-actions">${sessionControl}</div></header>
     <main class="home-cpc">
       <div class="tv-home top-band">
-        <div class="top-band-left"><button class="install-btn tv-install-btn" type="button" disabled>Instalar app</button></div>
+        <div class="top-band-left">${member ? identityCardMarkup(member) : ''}<button class="install-btn tv-install-btn" type="button" disabled>Instalar app</button></div>
         ${tvMarkup()}
       </div>
       <section class="modules-section" aria-label="Accesos CPC e-Learning">
@@ -146,10 +146,15 @@ function profileModalMarkup() {
   </section></div>`;
 }
 
+// Tarjeta de identidad (avatar con lápiz para editar el perfil).
+function identityCardMarkup(member) {
+  return `<section class="identity-card" aria-label="Identidad del usuario"><div class="identity-avatar-wrap"><span class="identity-avatar-holder">${identityAvatarHtml(member, 'identity-avatar')}</span><button class="identity-edit profile-open-btn" type="button" aria-label="Editar perfil"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></button></div><div class="identity-copy"><strong class="identity-name">${identityName(member)}</strong><span class="identity-email">${member.email || ''}</span></div></section>`;
+}
+
 function refreshIdentity() {
   const member = currentMemberData; if (!member) return;
-  const holder = app.querySelector('.member-identity-avatar'); if (holder) holder.innerHTML = identityAvatarHtml(member);
-  const nameEl = app.querySelector('.member-name'); if (nameEl) nameEl.textContent = identityName(member);
+  const holder = app.querySelector('.identity-avatar-holder'); if (holder) holder.innerHTML = identityAvatarHtml(member, 'identity-avatar');
+  const nameEl = app.querySelector('.identity-name'); if (nameEl) nameEl.textContent = identityName(member);
 }
 
 function paintProfileAvatar(url) {
@@ -169,7 +174,7 @@ function resizeImageFile(file, max = 800) {
 }
 
 function bindProfile() {
-  const modal = document.getElementById('profileModal'); const openBtn = app.querySelector('.profile-open-btn'); if (!modal || !openBtn) return;
+  const modal = document.getElementById('profileModal'); const openBtns = app.querySelectorAll('.profile-open-btn'); if (!modal || !openBtns.length) return;
   const fileInput = document.getElementById('profileAvatarFile'); const msg = document.getElementById('profileMessage'); const saveBtn = document.getElementById('btnSaveProfile');
   let pendingPhoto = null;
   const showMsg = (text) => { msg.textContent = text || ''; msg.hidden = !text; };
@@ -187,7 +192,7 @@ function bindProfile() {
     if (!enabled) showMsg(sysProfile?.mensaje || 'Tu usuario CPC aún no está activo. Consulta con la administración de CPC.');
     modal.hidden = false; document.body.classList.add('modal-open');
   };
-  openBtn.addEventListener('click', open);
+  openBtns.forEach((btn) => btn.addEventListener('click', open));
   modal.querySelector('.profile-close').addEventListener('click', close);
   document.getElementById('btnCancelProfile').addEventListener('click', close);
   modal.addEventListener('click', (e) => { if (e.target === modal) close(); });

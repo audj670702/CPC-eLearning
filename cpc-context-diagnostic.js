@@ -42,14 +42,7 @@ function ensureDiagnosticUi() {
     document.head.appendChild(style);
   }
 
-  let eo = document.getElementById('cpcEoTitle');
-  if (!eo) {
-    eo = document.createElement('div');
-    eo.id = 'cpcEoTitle';
-    eo.className = 'cpc-eo-title';
-    eo.setAttribute('aria-live', 'polite');
-    topbar.insertAdjacentElement('afterend', eo);
-  }
+  // v0.5.24: sin título de la EO (app uniempresa; el logotipo CPC ya la identifica).
 
   let cca = document.getElementById('cpcCca');
   if (!cca) {
