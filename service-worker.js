@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cpc-elearning-v0.5.19-primera-entrada';
+const CACHE_NAME = 'cpc-elearning-v0.5.20-sesion-cpc';
 const APP_SHELL = [
   './',
   './index.html',
