@@ -2300,7 +2300,9 @@ var qrcode = function() {
 
 
 /* =====================================================
- * cpc-constancia-pdf.js · v0.2.0
+ * cpc-constancia-pdf.js · v0.2.1
+ * v0.2.1: título centrado con exactitud, logotipo a la derecha, avatar a la
+ *         izquierda a la altura del nombre (el nombre largo reduce su letra).
  * v0.2.0: marco tipo diploma, logotipo más grande, avatar del participante
  *         (datos.participante.avatarUrl) y sitio cpc.scad.mx al pie.
  * CPC · GENERADOR DE CONSTANCIA EN PDF (navegador)
@@ -2328,7 +2330,7 @@ var qrcode = function() {
 (function (global) {
   'use strict';
 
-  const VERSION = '0.2.0';
+  const VERSION = '0.2.1';
   const LOGO_CPC = 'https://static.wixstatic.com/media/0492f8_594afd2181ea4fd09eeee41d092eb429~mv2.png';
   const VERIFICACION_BASE = 'https://www.scad.mx/verificar-constancia';
   const SITIO_CPC = 'https://cpc.scad.mx';
@@ -2513,27 +2515,19 @@ var qrcode = function() {
     // Marco tipo diploma
     dibujarMarco(doc, W, H);
 
-    // Encabezado: logotipo CPC (incluye "Centro Privado de Capacitación")
-    imagenEnCaja(doc, logo, 34, 22, 50, 36, 'left');
+    // Encabezado: logotipo CPC en la esquina superior derecha
+    // (incluye "Centro Privado de Capacitación")
+    imagenEnCaja(doc, logo, W - 34 - 50, 22, 50, 36, 'right');
 
-    // Avatar del participante (si existe), circular con aro dorado
-    if (avatar) {
-      const dA = 30, aX = W - 36 - dA, aY = 25;
-      doc.addImage(avatar.dataUrl, 'PNG', aX, aY, dA, dA);
-      doc.setDrawColor(...COLOR.oro);
-      doc.setLineWidth(1.1);
-      doc.circle(aX + dA / 2, aY + dA / 2, dA / 2 + 0.6);
-      doc.setDrawColor(...COLOR.marca);
-      doc.setLineWidth(0.3);
-      doc.circle(aX + dA / 2, aY + dA / 2, dA / 2 + 1.8);
-    }
-
-    // Título
+    // Título centrado. jsPDF no descuenta el espaciado entre letras al
+    // centrar, así que se calcula el ancho real y se coloca desde la izquierda.
     let y = 47;
+    const titulo = 'CONSTANCIA', esp = 2.4;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(30);
     doc.setTextColor(...COLOR.marca);
-    doc.text('CONSTANCIA', cx, y, { align: 'center', charSpace: 2.4 });
+    const tituloW = doc.getTextWidth(titulo) + esp * (titulo.length - 1);
+    doc.text(titulo, cx - tituloW / 2, y, { charSpace: esp });
     doc.setDrawColor(...COLOR.oro);
     doc.setLineWidth(0.6);
     doc.line(cx - 26, y + 4, cx - 3, y + 4);
@@ -2549,10 +2543,32 @@ var qrcode = function() {
     doc.setTextColor(...COLOR.suave);
     doc.text('Se otorga la presente a', cx, y, { align: 'center' });
     y += 10;
+
+    // Avatar a la izquierda, a la altura del nombre (circular con aro dorado)
+    const dA = 30, aX = 36, aY = y - 5 - dA / 2;
+    if (avatar) {
+      doc.addImage(avatar.dataUrl, 'PNG', aX, aY, dA, dA);
+      doc.setDrawColor(...COLOR.oro);
+      doc.setLineWidth(1.1);
+      doc.circle(aX + dA / 2, aY + dA / 2, dA / 2 + 0.6);
+      doc.setDrawColor(...COLOR.marca);
+      doc.setLineWidth(0.3);
+      doc.circle(aX + dA / 2, aY + dA / 2, dA / 2 + 1.8);
+    }
+
+    // Nombre: centrado; si es muy largo, la letra se reduce para no invadir
+    // el espacio del avatar.
+    const nombre = clean(d.participante?.nombre) || '—';
+    const nombreMax = W - 2 * (aX + dA + 8);
+    let nombreFs = 21;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(21);
+    doc.setFontSize(nombreFs);
+    while (doc.getTextWidth(nombre) > nombreMax && nombreFs > 13) {
+      nombreFs -= 0.5;
+      doc.setFontSize(nombreFs);
+    }
     doc.setTextColor(...COLOR.texto);
-    doc.text(clean(d.participante?.nombre) || '—', cx, y, { align: 'center' });
+    doc.text(nombre, cx, y, { align: 'center' });
 
     // Curso
     y += 9;
