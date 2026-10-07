@@ -200,3 +200,35 @@ button { color: inherit; }
   .module-card { min-height: 82px; }
   .app-footer { padding: 24px 20px 16px; }
 }
+/* Identidad SYS (avatar) y Editar perfil · v0.5.23 */
+.member-initials { font-size: .62rem; font-weight: 800; color: #24539a; letter-spacing: .02em; }
+.member-identity-avatar { display: inline-flex; }
+.profile-backdrop { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 18px; background: rgba(7,26,51,.48); }
+.profile-backdrop[hidden] { display: none; }
+.profile-modal { position: relative; width: min(430px, 100%); max-height: 100%; overflow: auto; background: #fff; border: 1px solid #d9e2ed; border-radius: 12px; box-shadow: 0 18px 48px rgba(18,43,77,.22); padding: 18px; }
+.profile-close { position: absolute; right: 10px; top: 8px; border: 0; background: transparent; color: #718096; font-size: 1.45rem; cursor: pointer; }
+.profile-head { display: flex; align-items: center; gap: 11px; padding-right: 28px; }
+.profile-avatar { width: 52px; height: 52px; flex: 0 0 auto; border-radius: 50%; display: grid; place-items: center; background: #eaf0f7 center/cover no-repeat; color: #24539a; font-weight: 800; font-size: .9rem; border: 1px solid #d9e2ed; }
+.profile-kicker { display: block; font-size: .58rem; font-weight: 900; letter-spacing: .14em; color: #1768c4; }
+.profile-modal h2 { font-size: 1rem; margin: 2px 0 0; color: #12335c; }
+.profile-form { display: grid; gap: 10px; margin-top: 16px; padding-top: 13px; border-top: 1px solid #e2e8f0; }
+.profile-form label { display: grid; gap: 5px; font-size: .67rem; font-weight: 800; color: #718096; }
+.profile-form input[type="text"], .profile-form input[type="tel"] { width: 100%; height: 39px; border: 1px solid #d9e2ed; border-radius: 7px; background: #fff; color: #12335c; padding: 0 10px; font: inherit; font-size: .76rem; outline: none; }
+.profile-form input:focus { border-color: #1768c4; box-shadow: 0 0 0 2px rgba(23,104,196,.1); }
+.profile-photo-field { display: grid; gap: 6px; }
+.profile-photo-label { font-size: .67rem; font-weight: 800; color: #718096; }
+.profile-photo-input { position: absolute !important; width: 1px !important; height: 1px !important; opacity: 0 !important; pointer-events: none !important; }
+.profile-photo-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.profile-photo-button { height: 39px; border: 1px solid #d9e2ed; border-radius: 7px; background: #fff; color: #12335c; font-size: .7rem; font-weight: 800; cursor: pointer; }
+.profile-photo-button:hover { background: #f3f7fc; }
+.profile-photo-button:disabled { opacity: .5; cursor: default; }
+.profile-photo-help { font-size: .61rem; color: #718096; line-height: 1.25; }
+.profile-fixed { display: grid; grid-template-columns: 92px 1fr; gap: 8px; padding: 7px 0; font-size: .69rem; }
+.profile-fixed span { color: #718096; }
+.profile-fixed strong { overflow-wrap: anywhere; color: #12335c; }
+.profile-message { margin-top: 10px; padding: 8px 10px; border-radius: 7px; background: #fff5f5; color: #b4232f; font-size: .68rem; }
+.profile-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 15px; }
+.profile-button { height: 36px; border-radius: 7px; padding: 0 14px; font-size: .7rem; font-weight: 850; cursor: pointer; }
+.profile-button.secondary { border: 1px solid #d9e2ed; background: #fff; color: #12335c; }
+.profile-button.primary { border: 1px solid #12335c; background: #12335c; color: #fff; }
+.profile-button:disabled { opacity: .55; cursor: default; }

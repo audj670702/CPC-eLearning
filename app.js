@@ -1,11 +1,20 @@
 import { createClient, OAuthStrategy } from 'https://esm.sh/@wix/sdk';
-import { tvMarkup, initCpcTv } from './cpc-tv.js?v=0.5.22';
+import { tvMarkup, initCpcTv } from './cpc-tv.js?v=0.5.23';
 
 const app = document.getElementById('app');
 if (!app) throw new Error('No se encontró #app');
 
 const SCAD_SITE_URL = 'https://www.scad.mx';
 const CPC_CONTEXT_URL = 'https://www.scad.mx/_functions/cpcPwaContext';
+const CPC_PROFILE_URL = 'https://www.scad.mx/_functions/cpcPwaProfile';
+
+// Perfil SYS (SCaD_USR · app CPC): nombre visible, teléfono y avatar.
+// null = aún no cargado; { ok:false } = sin usuario CPC activo.
+let sysProfile = null;
+let currentMemberData = null;
+function initialsOf(name) { const p = String(name || '').trim().split(/\s+/).filter(Boolean); return (((p[0] || '')[0] || '') + ((p[1] || '')[0] || '')).toUpperCase() || '·'; }
+function identityName(member) { return (sysProfile?.ok && sysProfile.nombreVisible) || member?.name || 'Usuario'; }
+function identityAvatarHtml(member, cls = 'member-avatar') { const url = sysProfile?.ok ? sysProfile.avatar : ''; return url ? `<img class="${cls}" src="${url}" alt="">` : `<span class="${cls} member-initials">${initialsOf(identityName(member))}</span>`; }
 
 const URLS = {
   misCursos: 'challenges',
@@ -93,7 +102,8 @@ function constanciasHtml() {
 }
 
 function render(member) {
-  const sessionControl = member ? `<div class="member-control"><button class="member-trigger" type="button" aria-expanded="false">${member.avatar ? `<img src="${member.avatar}" alt="">` : '<span class="member-avatar">●</span>'}<span class="member-name">${member.name}</span><span class="member-chevron">⌄</span></button><nav class="member-menu" aria-label="Cuenta SCaD" hidden><span class="member-email">${member.email}</span><a class="member-menu-link" href="${getMemberAreaUrl(member, 'my-account')}">Mi Perfil SCaD</a><a class="member-menu-link" href="${getMemberAreaUrl(member, 'my-subscriptions')}">Mis suscripciones</a><a class="member-menu-link" href="${getMemberAreaUrl(member, 'my-wallet')}">Mis formas de pago</a><a class="member-menu-link" href="${getMemberAreaUrl(member, 'my-groups')}">Mis grupos</a><a class="member-menu-link" href="${withWixReturnUrl(URLS.scadHub)}">SCaD HUB</a><div class="member-menu-separator" aria-hidden="true"></div><button class="logout-btn" type="button">Cerrar sesión</button></nav></div>` : '<button class="session-btn" type="button">Iniciar sesión</button>';
+  currentMemberData = member;
+  const sessionControl = member ? `<div class="member-control"><button class="member-trigger" type="button" aria-expanded="false"><span class="member-identity-avatar">${identityAvatarHtml(member)}</span><span class="member-name">${identityName(member)}</span><span class="member-chevron">⌄</span></button><nav class="member-menu" aria-label="Cuenta SCaD" hidden><span class="member-email">${member.email}</span><button class="member-menu-link profile-open-btn" type="button">Editar perfil</button><a class="member-menu-link" href="${getMemberAreaUrl(member, 'my-account')}">Mi Perfil SCaD</a><a class="member-menu-link" href="${getMemberAreaUrl(member, 'my-subscriptions')}">Mis suscripciones</a><a class="member-menu-link" href="${getMemberAreaUrl(member, 'my-wallet')}">Mis formas de pago</a><a class="member-menu-link" href="${getMemberAreaUrl(member, 'my-groups')}">Mis grupos</a><a class="member-menu-link" href="${withWixReturnUrl(URLS.scadHub)}">SCaD HUB</a><div class="member-menu-separator" aria-hidden="true"></div><button class="logout-btn" type="button">Cerrar sesión</button></nav></div>` : '<button class="session-btn" type="button">Iniciar sesión</button>';
 
   app.innerHTML = `<div class="app-shell">
     <header class="topbar"><div class="brand"><img src="assets/icon-192.png" alt="CPC"><strong>CPC e-Learning</strong></div><div class="top-actions">${sessionControl}</div></header>
@@ -114,7 +124,92 @@ function render(member) {
     <footer class="app-footer"><div class="powered-by"><span>Powered by</span><img src="assets/logo_scad_hub.png" alt="SCaD HUB"></div><span class="version">v0.5.0 | 2026</span></footer>
   </div>
   <div class="infospe-modal" id="infospeModal" hidden><div class="infospe-panel"><div class="infospe-panel-top"><div class="infospe-heading"><img src="assets/logo_infospe.png" alt="INFOSPE"><div><strong>INFOSPE - Seguridad Privada</strong><span>Curso Básico de Profesionalización</span></div></div><button class="infospe-close" type="button" aria-label="Cerrar">×</button></div><div class="infospe-content"><section class="infospe-info-block infospe-intro-layout"><div class="infospe-info-copy"><p>La normatividad en el Estado de Guanajuato establece la obligación a la empresas de seguridad privada que cumplan un programa de capacitación basado en la currícula que el INFOSPE establece.</p><p>Este requisito se cumple acreditando la aprobación del Curso Básico de Profesionalización en Materia de Seguridad Privada.</p><p>El curso es presencial con apoyo en plataformas digitales y sesiones virtuales.</p><p>El período de impartición del curso base se realiza en 15 semanas.</p><p>De acuerdo a los requerimientos de la empresa, se puede impartir el curso en períodos convenientes para el cliente.</p></div><div class="infospe-accreditation-inline"><strong>Acreditación</strong><a class="infospe-doc-thumb infospe-accreditation-thumb" href="${URLS.certificacionInfospe}" target="_blank" rel="noopener noreferrer" aria-label="Ver acreditación CPC INFOSPE"><span class="infospe-pdf-preview"><iframe src="${URLS.certificacionInfospe}#toolbar=0&navpanes=0&scrollbar=0&view=FitH" title="Vista previa de acreditación CPC INFOSPE" tabindex="-1"></iframe></span><span class="infospe-thumb-action">Ver documento</span></a></div></section><section class="infospe-commercial"><div class="infospe-commercial-row"><strong>Precio regular:</strong><p>$ 6,900.00 + IVA por persona.</p></div><div class="infospe-commercial-row infospe-commercial-long"><strong>Garantía de Inversión:</strong><div><p>La política de GARANTÍA DE INVERSIÓN consiste en que, si por cualquier motivo un participante inscrito no concluye el curso, se bonifica el pago realizado a favor de otro participante en el siguiente curso.</p><p>La validez de esta política de inversión está sujeta a que la inscripción del nuevo participante se realice en el curso inmediato y se inscriba de manera regular a otro participante. Aplica sólo en precio regular.</p><p>El pago se realiza al momento de la inscripción del guardia al curso.</p><p>En el caso de convenios de capacitación en grupos diferidos (inscripción de guardias en diferentes fechas), se realiza el pago del 20% a la firma del convenio y el 80% de cada guardia conforme se vayan inscribiendo. El primer grupo se paga al 100%.</p></div></div></section><section class="infospe-constancias"><h3>Constancias que emitimos</h3><p class="infospe-intro">Documentamos formalmente cada etapa del proceso de capacitación, brindando certeza a las empresas de seguridad privada y a su personal.</p><div class="infospe-cert-list">${constanciasHtml()}</div></section></div></div></div>`;
+  if (member) app.insertAdjacentHTML('beforeend', profileModalMarkup());
   bindUI(); initTv(member);
+}
+
+// Editar perfil (modelo Nexus): nombre visible, teléfono y avatar en SCaD_USR.
+function profileModalMarkup() {
+  return `<div class="profile-backdrop" id="profileModal" hidden><section class="profile-modal" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
+    <button class="profile-close" type="button" aria-label="Cerrar">×</button>
+    <div class="profile-head"><span class="profile-avatar" id="profileAvatar"></span><div><span class="profile-kicker">PERFIL</span><h2 id="profileModalTitle">Editar perfil</h2></div></div>
+    <div class="profile-form">
+      <label>Nombre visible<input id="profileName" type="text" maxlength="80" autocomplete="name"></label>
+      <label>Teléfono / WhatsApp<input id="profilePhone" type="tel" maxlength="30" autocomplete="tel"></label>
+      <div class="profile-photo-field"><span class="profile-photo-label">Avatar</span><input id="profileAvatarFile" class="profile-photo-input" type="file" accept="image/jpeg,image/png,image/webp">
+        <div class="profile-photo-actions"><button id="btnChooseProfilePhoto" class="profile-photo-button" type="button">Cargar foto</button><button id="btnTakeProfilePhoto" class="profile-photo-button" type="button">Tomar foto</button></div>
+        <span class="profile-photo-help">Selecciona una imagen del dispositivo o usa la cámara.</span></div>
+      <div class="profile-fixed"><span>Correo</span><strong id="profileEmail">—</strong></div>
+    </div>
+    <div class="profile-message" id="profileMessage" hidden></div>
+    <div class="profile-actions"><button class="profile-button secondary" id="btnCancelProfile" type="button">Cancelar</button><button class="profile-button primary" id="btnSaveProfile" type="button">Guardar</button></div>
+  </section></div>`;
+}
+
+function refreshIdentity() {
+  const member = currentMemberData; if (!member) return;
+  const holder = app.querySelector('.member-identity-avatar'); if (holder) holder.innerHTML = identityAvatarHtml(member);
+  const nameEl = app.querySelector('.member-name'); if (nameEl) nameEl.textContent = identityName(member);
+}
+
+function paintProfileAvatar(url) {
+  const el = document.getElementById('profileAvatar'); if (!el) return;
+  el.style.backgroundImage = url ? `url("${String(url).replace(/"/g, '%22')}")` : '';
+  el.textContent = url ? '' : initialsOf(document.getElementById('profileName')?.value || identityName(currentMemberData));
+}
+
+// Reduce la imagen (máx. 800 px, JPEG) antes de enviarla.
+function resizeImageFile(file, max = 800) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('No fue posible leer la imagen.'));
+    reader.onload = () => { const img = new Image(); img.onerror = () => reject(new Error('Formato de imagen no válido.')); img.onload = () => { const k = Math.min(1, max / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); resolve(c.toDataURL('image/jpeg', 0.86)); }; img.src = reader.result; };
+    reader.readAsDataURL(file);
+  });
+}
+
+function bindProfile() {
+  const modal = document.getElementById('profileModal'); const openBtn = app.querySelector('.profile-open-btn'); if (!modal || !openBtn) return;
+  const fileInput = document.getElementById('profileAvatarFile'); const msg = document.getElementById('profileMessage'); const saveBtn = document.getElementById('btnSaveProfile');
+  let pendingPhoto = null;
+  const showMsg = (text) => { msg.textContent = text || ''; msg.hidden = !text; };
+  const close = () => { modal.hidden = true; document.body.classList.remove('modal-open'); };
+  const open = async () => {
+    app.querySelector('.member-menu').hidden = true; app.querySelector('.member-trigger')?.setAttribute('aria-expanded', 'false');
+    await sysSessionReady.catch(() => null);
+    pendingPhoto = null; fileInput.value = ''; showMsg('');
+    document.getElementById('profileName').value = identityName(currentMemberData);
+    document.getElementById('profilePhone').value = (sysProfile?.ok && sysProfile.telefono) || '';
+    document.getElementById('profileEmail').textContent = currentMemberData?.email || '—';
+    paintProfileAvatar(sysProfile?.ok ? sysProfile.avatar : '');
+    const enabled = Boolean(sysProfile?.ok); saveBtn.disabled = !enabled;
+    document.getElementById('btnChooseProfilePhoto').disabled = !enabled; document.getElementById('btnTakeProfilePhoto').disabled = !enabled;
+    if (!enabled) showMsg(sysProfile?.mensaje || 'Tu usuario CPC aún no está activo. Consulta con la administración de CPC.');
+    modal.hidden = false; document.body.classList.add('modal-open');
+  };
+  openBtn.addEventListener('click', open);
+  modal.querySelector('.profile-close').addEventListener('click', close);
+  document.getElementById('btnCancelProfile').addEventListener('click', close);
+  modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+  document.getElementById('btnChooseProfilePhoto').addEventListener('click', () => { fileInput.removeAttribute('capture'); fileInput.click(); });
+  document.getElementById('btnTakeProfilePhoto').addEventListener('click', () => { fileInput.setAttribute('capture', 'user'); fileInput.click(); });
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files?.[0]; if (!file) return;
+    try { pendingPhoto = await resizeImageFile(file); paintProfileAvatar(pendingPhoto); showMsg(''); } catch (error) { pendingPhoto = null; showMsg(error.message); }
+  });
+  saveBtn.addEventListener('click', async () => {
+    const nombreVisible = document.getElementById('profileName').value.trim(); const telefono = document.getElementById('profilePhone').value.trim();
+    const payload = { nombreVisible, telefono }; if (pendingPhoto) payload.foto = { base64: pendingPhoto, mimeType: 'image/jpeg', fileName: 'avatar.jpg' };
+    try {
+      saveBtn.disabled = true; saveBtn.textContent = 'Guardando…'; showMsg('');
+      const fresh = await ensureFreshTokens().catch(() => tokens); const accessToken = fresh?.accessToken?.value || tokens?.accessToken?.value || '';
+      const response = await fetch(CPC_PROFILE_URL, { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json', 'X-CPC-Session': accessToken }, body: JSON.stringify(payload) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.ok !== true) throw new Error(data?.mensaje || 'No fue posible guardar el perfil.');
+      sysProfile = { ok: true, nombreVisible: data.nombreVisible || nombreVisible, telefono: data.telefono ?? telefono, avatar: data.avatar || sysProfile?.avatar || '' };
+      refreshIdentity(); close();
+    } catch (error) { showMsg(error.message); } finally { saveBtn.disabled = false; saveBtn.textContent = 'Guardar'; }
+  });
 }
 
 // Monitor TV: canal "TV Capacitación" (predeterminado, configurado desde el Panel CPC) + "TV Digital Internet".
@@ -137,6 +232,7 @@ function initTv(member) {
 }
 
 function bindUI() {
+  bindProfile();
   const memberTrigger = app.querySelector('.member-trigger'); const memberMenu = app.querySelector('.member-menu'); const sessionBtn = app.querySelector('.session-btn'); const logoutBtn = app.querySelector('.logout-btn'); const infospeModule = app.querySelector('.infospe-module'); const infospeModal = document.getElementById('infospeModal'); const infospeClose = app.querySelector('.infospe-close');
   infospeModule?.addEventListener('click', () => { infospeModal.hidden = false; document.body.classList.add('modal-open'); });
   infospeClose?.addEventListener('click', () => { infospeModal.hidden = true; document.body.classList.remove('modal-open'); });
@@ -154,7 +250,12 @@ async function syncSysSession() {
   const fresh = await ensureFreshTokens().catch(() => tokens);
   const accessToken = fresh?.accessToken?.value || tokens?.accessToken?.value || '';
   if (!accessToken) return;
-  await fetch(CPC_CONTEXT_URL + '?primeraEntrada=1&t=' + Date.now(), { cache: 'no-store', headers: { 'X-CPC-Session': accessToken } });
+  const response = await fetch(CPC_CONTEXT_URL + '?primeraEntrada=1&t=' + Date.now(), { cache: 'no-store', headers: { 'X-CPC-Session': accessToken } });
+  const data = await response.json().catch(() => null);
+  sysProfile = data?.ok
+    ? { ok: true, nombreVisible: data.usuario?.nombreVisibleSys || '', telefono: data.usuario?.telefono || '', avatar: data.usuario?.avatar || '' }
+    : { ok: false, mensaje: data?.mensaje || '' };
+  refreshIdentity();
 }
 
 async function boot() { try { await finishOAuthCallbackIfNeeded(); const rawMember = await getCurrentMember(); if (rawMember) { sysSessionReady = syncSysSession().catch((error) => console.warn('CPC primera entrada:', error)); } render(normalizeMember(rawMember)); } catch (error) { console.error('CPC auth:', error); render(null); } }
