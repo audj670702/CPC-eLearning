@@ -1,4 +1,4 @@
-import { instructorContext, openInstructorClass } from './cpc-instructor.js?v=1.0.1';
+import { instructorContext, openInstructorClass } from './cpc-instructor.js?v=1.0.2';
 const CPC_CAL = {
   tokenStorageKey: 'cpc_wix_member_tokens',
   queryUrl: 'https://www.wixapis.com/wix-data/v2/items/query',
@@ -181,6 +181,10 @@ function calEnsureStyles() {
     .cpc-cal-eventchip{display:block;width:100%;border:0;text-align:left;background:#ede9fe;color:#4c1d95;border-radius:7px;padding:4px 6px;margin:3px 0;font-size:.68rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}.cpc-cal-code{font-weight:900}
     .cpc-cal-more{font-size:.66rem;color:#64748b;margin-top:3px}.cpc-cal-detail{position:fixed;inset:0;z-index:1310;background:rgba(15,23,42,.38);display:grid;place-items:center;padding:18px}.cpc-cal-detail[hidden]{display:none}.cpc-cal-detail-card{width:min(460px,100%);background:#fff;border-radius:18px;box-shadow:0 20px 60px rgba(15,23,42,.28);padding:18px}.cpc-cal-detail-head{display:flex;justify-content:space-between;gap:12px}.cpc-cal-detail-head button{border:0;background:#f1f5f9;border-radius:9px;width:34px;height:34px;font-size:20px;cursor:pointer}.cpc-cal-type{display:inline-block;font-size:.68rem;font-weight:800;color:#5b21b6;background:#ede9fe;padding:4px 8px;border-radius:999px;margin-bottom:7px}.cpc-cal-coursecode{display:block;font-size:.78rem;font-weight:900;color:#5b21b6;margin:3px 0 8px}.cpc-cal-detail h3{margin:0 0 8px;font-size:1.05rem}.cpc-cal-detail p{margin:6px 0;color:#475569}.cpc-cal-detail small{display:block;margin:5px 0;color:#64748b}.cpc-cal-link{display:inline-block;margin-top:10px;font-weight:800;color:#1d4ed8;text-decoration:none}
     @media(max-width:620px){.cpc-cal-modal{padding:8px}.cpc-cal-panel{border-radius:16px;max-height:94vh}.cpc-cal-body{padding:0 7px 12px;max-height:calc(94vh - 108px)}.cpc-cal-toolbar{padding:10px}.cpc-cal-weekdays,.cpc-cal-grid{gap:3px}.cpc-cal-weekdays div{font-size:.62rem;padding:3px}.cpc-cal-day{min-height:72px;padding:4px;border-radius:8px}.cpc-cal-daynum{font-size:.68rem}.cpc-cal-eventchip{font-size:.59rem;padding:3px 4px}.cpc-cal-more{font-size:.58rem}.cpc-cal-nav button{padding:7px 9px}.cpc-cal-month{font-size:.9rem}}
+
+    .cpc-cal-top{background:#245d8c;color:#fff;padding:14px 18px;border:0}.cpc-cal-title{display:flex;align-items:center;gap:10px}.cpc-cal-title>span{font-size:28px;line-height:1;font-family:Arial,sans-serif}.cpc-cal-top strong{font-weight:500;font-size:17px;letter-spacing:.2px}.cpc-cal-top .cpc-cal-close{background:#ffffff1f;color:#fff;border:1px solid #ffffff40;border-radius:6px;width:32px;height:32px;padding:0;line-height:1}
+    .cpc-cal-toolbar{padding:14px 18px 8px}.cpc-cal-month{font-weight:500;font-size:18px;color:#245d8c}.cpc-cal-nav button{background:#f0f5f9;color:#245d8c;border-radius:5px;font-weight:400}.cpc-cal-nav button:first-child,.cpc-cal-nav button:last-child{font-size:22px;padding:3px 10px}.cpi-cal-controls{display:flex;align-items:flex-start;gap:24px;padding:6px 18px 14px;border-bottom:1px solid #e2e8f0;margin-bottom:12px;flex-wrap:wrap}.cpc-cal-control-group{display:flex;align-items:center;gap:8px}.cpc-cal-label{font-size:10px;color:#64748b}.cpc-cal-options{display:flex;gap:3px}.cpc-cal-options button{display:flex;align-items:center;gap:5px;padding:7px 8px;background:transparent;color:#64748b;border:0;border-bottom:2px solid transparent;border-radius:0;font-weight:400;cursor:pointer}.cpc-cal-options button>span{font-size:21px;line-height:1;font-family:Arial,sans-serif}.cpc-cal-options small{font-size:11px;white-space:nowrap}.cpc-cal-options button[aria-pressed=true]{color:#245d8c;border-bottom-color:#245d8c;background:#f0f6fb}.cpc-cal-options button[data-cal-filter=assigned][aria-pressed=true]{color:#9a4b0a;border-bottom-color:#e99029;background:#fff6e9}.cpc-cal-options button[hidden]{display:none}.cpc-cal-options button:focus-visible{outline:2px solid #245d8c;outline-offset:2px}.cpc-cal-body{max-height:calc(90vh - 205px)}
+    @media(max-width:620px){.cpi-cal-controls{gap:10px;padding:4px 10px 10px}.cpc-cal-control-group{gap:5px}.cpc-cal-options button{flex-direction:column;gap:3px;padding:6px}.cpc-cal-options small{font-size:9px}.cpc-cal-month{font-size:16px}.cpc-cal-toolbar{padding:12px 10px 8px}.cpc-cal-body{max-height:calc(94vh - 220px)}}
   `;
   document.head.appendChild(style);
 }
@@ -201,6 +205,8 @@ function calMexicoDay(date){return new Intl.DateTimeFormat('en-CA',{timeZone:'Am
 function calFilteredEvents(){return calState.events.filter(ev=>calState.filter!=='assigned'||ev.instructorClassId);}
 function calRenderMonth() {
   const main=document.getElementById('cpcCalendarModal');if(!main)return;
+  main.querySelectorAll('[data-cal-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.calView===calState.view)));
+  main.querySelectorAll('[data-cal-filter]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.calFilter===calState.filter)));
   const list=main.querySelector('[data-cal-list]'),gridEl=main.querySelector('[data-cal-grid]'),weekdays=main.querySelector('.cpc-cal-weekdays');
   if(!list||!gridEl)return;
   list.hidden=calState.view!=='list';gridEl.hidden=calState.view==='list';weekdays.hidden=calState.view==='list';
@@ -277,9 +283,9 @@ function calEnsureModal() {
   modal.hidden = true;
   modal.innerHTML = `
     <section class="cpc-cal-panel" role="dialog" aria-modal="true" aria-labelledby="cpcCalTitle">
-      <header class="cpc-cal-top"><strong id="cpcCalTitle">Calendario</strong><button class="cpc-cal-close" type="button" aria-label="Cerrar">×</button></header>
+      <header class="cpc-cal-top"><div class="cpc-cal-title"><span aria-hidden="true">▦</span><strong id="cpcCalTitle">Calendario</strong></div><button class="cpc-cal-close" type="button" aria-label="Cerrar">×</button></header>
       <div class="cpc-cal-toolbar"><div class="cpc-cal-month" data-cal-month></div><div class="cpc-cal-nav"><button type="button" data-cal-prev>‹</button><button type="button" data-cal-today>Hoy</button><button type="button" data-cal-next>›</button></div></div>
-      <div class="cpi-cal-controls"><select data-cal-filter aria-label="Filtrar calendario"><option value="all">Todos mis eventos</option><option value="assigned" hidden>Clases asignadas</option></select><select data-cal-view aria-label="Vista del calendario"><option value="calendar">Calendario</option><option value="list">Lista</option></select></div>
+      <div class="cpi-cal-controls"><div class="cpc-cal-control-group" role="group" aria-label="Vista"><span class="cpc-cal-label">Vista</span><div class="cpc-cal-options"><button type="button" data-cal-view="calendar" aria-label="Calendario" title="Calendario" aria-pressed="true"><span aria-hidden="true">▦</span><small>Calendario</small></button><button type="button" data-cal-view="list" aria-label="Lista" title="Lista" aria-pressed="false"><span aria-hidden="true">☷</span><small>Lista</small></button></div></div><div class="cpc-cal-control-group" role="group" aria-label="Eventos"><span class="cpc-cal-label">Eventos</span><div class="cpc-cal-options"><button type="button" data-cal-filter="all" aria-label="Todos los eventos" title="Todos los eventos" aria-pressed="true"><span aria-hidden="true">◉</span><small>Todos los eventos</small></button><button type="button" data-cal-filter="assigned" aria-label="Clases asignadas" title="Clases asignadas" aria-pressed="false" hidden><span aria-hidden="true">⚑</span><small>Clases asignadas</small></button></div></div></div>
       <div class="cpc-cal-body" data-cpc-cal-body><div class="cpc-cal-weekdays"><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div></div><div class="cpc-cal-grid" data-cal-grid></div></div>
     </section>`;
   document.body.appendChild(modal);
@@ -291,8 +297,8 @@ function calEnsureModal() {
   detail.innerHTML = `<div class="cpc-cal-detail-card"><div class="cpc-cal-detail-head"><div data-cal-detail-body></div><button type="button" aria-label="Cerrar">×</button></div></div>`;
   document.body.appendChild(detail);
 
-  modal.querySelector('[data-cal-filter]').onchange=e=>{calState.filter=e.target.value;calRenderMonth();};
-  modal.querySelector('[data-cal-view]').onchange=e=>{calState.view=e.target.value;calRenderMonth();};
+  modal.querySelectorAll('[data-cal-filter]').forEach(button=>button.onclick=()=>{calState.filter=button.dataset.calFilter;calRenderMonth();});
+  modal.querySelectorAll('[data-cal-view]').forEach(button=>button.onclick=()=>{calState.view=button.dataset.calView;calRenderMonth();});
   const closeMain = () => { modal.hidden = true; detail.hidden = true; document.body.classList.remove('modal-open'); };
   modal.querySelector('.cpc-cal-close').addEventListener('click', closeMain);
   modal.addEventListener('click', e => { if (e.target === modal) closeMain(); });
@@ -321,8 +327,8 @@ async function openCalendar() {
       return;
     }
     calState.events = result.events;calState.isInstructor=result.isInstructor;
-    modal.querySelector('[value=assigned]').hidden=!result.isInstructor;
-    if(!result.isInstructor){calState.filter='all';modal.querySelector('[data-cal-filter]').value='all';}
+    modal.querySelector('[data-cal-filter=assigned]').hidden=!result.isInstructor;
+    if(!result.isInstructor)calState.filter='all';
     calState.viewDate = new Date();
     body.innerHTML = '<div class="cpc-cal-weekdays"><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div></div><div class="cpc-cal-grid" data-cal-grid></div><div class="cpi-cal-list-wrap" data-cal-list hidden></div>';
     calRenderMonth();
