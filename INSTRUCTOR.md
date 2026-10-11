@@ -14,11 +14,11 @@ ENVIAR fija el lote. Los reintentos usan los mismos identificadores y solo se ac
 
 - Requiere cpcCursosAdmin.web.js completo v0.13.5, entregado por separado.
 - El archivo backend/cpcInstructorHttp.js es completo y delega al mismo control académico.
-- backend/http-functions-instructor.integration.txt muestra la conexión mínima pendiente para el http-functions.js vigente de Wix. No es un reemplazo de ese archivo.
+- backend/http-functions-instructor.integration.txt documenta las dos adiciones al http-functions.js vigente de Wix. No es un reemplazo de ese archivo.
 - Los recibos usan CPC_Asistencias y sus campos existentes. No llevan courseId, por lo que no duplican columnas ni valores en el reporte administrativo.
 - El panel conserva HTML v0.9.38 y Velo v0.9.28.
 
-Esta rama es un borrador de integración. Falta el http-functions.js vigente para terminar el archivo completo y probar OAuth y escritura reales en Wix/Drive antes de publicar la app.
+El usuario confirmó la publicación del backend Wix y del endpoint el 11 de octubre de 2026. La app se activa desde esta actualización. La comprobación real de sesión de instructor y escritura en Wix/Drive continúa pendiente.
 
 ## Validación
 
