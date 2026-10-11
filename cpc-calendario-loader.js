@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = 'v0.5.28 | 2026';
+  const VERSION = 'v0.5.29 | 2026';
   let loading = false;
   let loaded = false;
 
@@ -29,7 +29,7 @@
     loading = true;
 
     try {
-      await import('./cpc-calendario.js?v=0.5.28');
+      await import('./cpc-calendario.js?v=0.5.29');
       loaded = true;
       loading = false;
       card.click();

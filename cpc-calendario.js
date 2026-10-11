@@ -1,4 +1,4 @@
-import { instructorContext, openInstructorClass } from './cpc-instructor.js?v=1.0.2';
+import { instructorContext, openInstructorClass } from './cpc-instructor.js?v=1.0.3';
 const CPC_CAL = {
   tokenStorageKey: 'cpc_wix_member_tokens',
   queryUrl: 'https://www.wixapis.com/wix-data/v2/items/query',
@@ -12,7 +12,7 @@ const CPC_CAL = {
   }
 };
 
-let calState = { events: [], viewDate: new Date(), view:'calendar',filter:'all',isInstructor:false };
+let calState = { events: [], viewDate: new Date(), view:'calendar',filter:'all',isInstructor:false,selectedEventId:'' };
 
 function calToken() {
   try { return JSON.parse(localStorage.getItem(CPC_CAL.tokenStorageKey) || 'null')?.accessToken?.value || ''; }
@@ -185,6 +185,12 @@ function calEnsureStyles() {
     .cpc-cal-top{background:#245d8c;color:#fff;padding:14px 18px;border:0}.cpc-cal-title{display:flex;align-items:center;gap:10px}.cpc-cal-title>span{font-size:28px;line-height:1;font-family:Arial,sans-serif}.cpc-cal-top strong{font-weight:500;font-size:17px;letter-spacing:.2px}.cpc-cal-top .cpc-cal-close{background:#ffffff1f;color:#fff;border:1px solid #ffffff40;border-radius:6px;width:32px;height:32px;padding:0;line-height:1}
     .cpc-cal-toolbar{padding:14px 18px 8px}.cpc-cal-month{font-weight:500;font-size:18px;color:#245d8c}.cpc-cal-nav button{background:#f0f5f9;color:#245d8c;border-radius:5px;font-weight:400}.cpc-cal-nav button:first-child,.cpc-cal-nav button:last-child{font-size:22px;padding:3px 10px}.cpi-cal-controls{display:flex;align-items:flex-start;gap:24px;padding:6px 18px 14px;border-bottom:1px solid #e2e8f0;margin-bottom:12px;flex-wrap:wrap}.cpc-cal-control-group{display:flex;align-items:center;gap:8px}.cpc-cal-label{font-size:10px;color:#64748b}.cpc-cal-options{display:flex;gap:3px}.cpc-cal-options button{display:flex;align-items:center;gap:5px;padding:7px 8px;background:transparent;color:#64748b;border:0;border-bottom:2px solid transparent;border-radius:0;font-weight:400;cursor:pointer}.cpc-cal-options button>span{font-size:21px;line-height:1;font-family:Arial,sans-serif}.cpc-cal-options small{font-size:11px;white-space:nowrap}.cpc-cal-options button[aria-pressed=true]{color:#245d8c;border-bottom-color:#245d8c;background:#f0f6fb}.cpc-cal-options button[data-cal-filter=assigned][aria-pressed=true]{color:#9a4b0a;border-bottom-color:#e99029;background:#fff6e9}.cpc-cal-options button[hidden]{display:none}.cpc-cal-options button:focus-visible{outline:2px solid #245d8c;outline-offset:2px}.cpc-cal-body{max-height:calc(90vh - 205px)}
     @media(max-width:620px){.cpi-cal-controls{gap:10px;padding:4px 10px 10px}.cpc-cal-control-group{gap:5px}.cpc-cal-options button{flex-direction:column;gap:3px;padding:6px}.cpc-cal-options small{font-size:9px}.cpc-cal-month{font-size:16px}.cpc-cal-toolbar{padding:12px 10px 8px}.cpc-cal-body{max-height:calc(94vh - 220px)}}
+
+    .cpc-cal-toolbar{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center}.cpc-cal-year{font-size:15px;color:#64748b;font-weight:400}.cpc-cal-month-nav{display:flex;align-items:center;gap:10px;justify-content:center}.cpc-cal-month{min-width:100px;text-align:center;font-size:18px;font-weight:500}.cpc-cal-today{justify-self:end;border:1px solid #d2dfe9;background:white;color:#245d8c;padding:7px 12px;border-radius:5px;font-size:12px;cursor:pointer}
+    .cpc-cal-day.is-today{background:#e5f1fb;border:2px solid #245d8c;box-shadow:inset 0 0 0 1px #fff}.cpc-cal-day.is-today .cpc-cal-daynum{display:inline-grid;place-items:center;background:#245d8c;color:white;min-width:25px;height:25px;border-radius:50%;padding:0 3px;margin-bottom:6px}
+    .cpc-cal-event-nav{display:flex;align-items:center;gap:8px;padding:0 18px 12px;color:#245d8c}.cpc-cal-event-nav>span{font-size:12px}.cpc-cal-event-nav button{width:28px;height:28px;background:#f0f5f9;color:#245d8c;border:0;border-radius:5px;font-size:22px;cursor:pointer}.cpc-cal-event-nav button:disabled{opacity:.3;cursor:default}.cpc-cal-event-nav small{font-size:11px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.is-current-event{outline:2px solid #245d8c;outline-offset:-2px}
+    .cpi-cal-controls{gap:20px}.cpc-cal-control-group{flex-direction:column;align-items:flex-start;gap:5px}.cpc-cal-control-group+.cpc-cal-control-group{border-left:1px solid #dce3eb;padding-left:20px}.cpc-cal-label{font-size:10px;text-transform:uppercase;letter-spacing:.9px;font-weight:600;color:#526577}.cpc-cal-options small{font-weight:400;font-size:11px}.cpc-cal-body{max-height:calc(90vh - 250px)}
+    @media(max-width:620px){.cpc-cal-toolbar{gap:5px}.cpc-cal-year{font-size:13px}.cpc-cal-month{min-width:82px;font-size:16px}.cpc-cal-month-nav{gap:4px}.cpc-cal-today{padding:6px 9px}.cpi-cal-controls{gap:12px}.cpc-cal-control-group+.cpc-cal-control-group{padding-left:12px}.cpc-cal-options small{font-size:9px}.cpc-cal-event-nav{padding:0 10px 10px}.cpc-cal-body{max-height:calc(94vh - 270px)}}
   `;
   document.head.appendChild(style);
 }
@@ -203,29 +209,43 @@ function calEventsForDay(day) {
 
 function calMexicoDay(date){return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Mexico_City',year:'numeric',month:'2-digit',day:'2-digit'}).format(date);}
 function calFilteredEvents(){return calState.events.filter(ev=>calState.filter!=='assigned'||ev.instructorClassId);}
+function calToday(){const [y,m,d]=calMexicoDay(new Date()).split('-').map(Number);return new Date(y,m-1,d,12);}
+function calEventTargets(){
+ const events=calFilteredEvents().filter(e=>e._fechaInicio).slice().sort((a,b)=>a._fechaInicio.getTime()-b._fechaInicio.getTime()||String(a.id).localeCompare(String(b.id)));
+ const index=events.findIndex(e=>e.id===calState.selectedEventId);
+ if(index>=0)return {previous:events[index-1],next:events[index+1]};
+ const now=Date.now();return {previous:events.filter(e=>e._fechaInicio.getTime()<now).at(-1),next:events.find(e=>e._fechaInicio.getTime()>=now)};
+}
+function calGoEvent(direction){
+ const event=calEventTargets()[direction];if(!event)return;
+ calState.selectedEventId=event.id;const [y,m,d]=calMexicoDay(event._fechaInicio).split('-').map(Number);calState.viewDate=new Date(y,m-1,d,12);calRenderMonth();
+ const main=document.getElementById('cpcCalendarModal');const selected=main?.querySelector('.is-current-event');selected?.scrollIntoView?.({block:'nearest',behavior:'smooth'});
+}
 function calRenderMonth() {
   const main=document.getElementById('cpcCalendarModal');if(!main)return;
+  main.querySelector('[data-cal-year]').textContent=calState.viewDate.getFullYear();
+  main.querySelector('[data-cal-month]').textContent=new Intl.DateTimeFormat('es-MX',{month:'long'}).format(calState.viewDate);
+  const targets=calEventTargets();main.querySelector('[data-cal-event-prev]').disabled=!targets.previous;main.querySelector('[data-cal-event-next]').disabled=!targets.next;
+  const selectedEvent=calFilteredEvents().find(e=>e.id===calState.selectedEventId);main.querySelector('[data-cal-event-reference]').textContent=selectedEvent?`${calMexicoDay(selectedEvent._fechaInicio).split('-').reverse().join('/')} · ${selectedEvent.titulo||'Evento'}`:'';
   main.querySelectorAll('[data-cal-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.calView===calState.view)));
   main.querySelectorAll('[data-cal-filter]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.calFilter===calState.filter)));
   const list=main.querySelector('[data-cal-list]'),gridEl=main.querySelector('[data-cal-grid]'),weekdays=main.querySelector('.cpc-cal-weekdays');
   if(!list||!gridEl)return;
   list.hidden=calState.view!=='list';gridEl.hidden=calState.view==='list';weekdays.hidden=calState.view==='list';
   if(calState.view==='list'){
-    main.querySelector('[data-cal-month]').textContent=calMonthLabel(calState.viewDate);
     const prefix=`${calState.viewDate.getFullYear()}-${String(calState.viewDate.getMonth()+1).padStart(2,'0')}`;
     const events=calFilteredEvents().filter(ev=>calMexicoDay(ev._fechaInicio).startsWith(prefix));
-    list.innerHTML=events.length?`<table class="cpi-cal-list"><thead><tr><th>Fecha / horario</th><th>Clase / grupo</th><th>Referencia</th><th>Registro</th></tr></thead><tbody>${events.map(ev=>`<tr class="${ev.instructorClassId?'cpi-cal-assigned':''}"><td>${calEscape(calFormatRange(ev))}</td><td><button data-cal-event="${calEscape(ev.id)}">${calEscape(ev.cursoDetalle?.codigoCurso||'')} · ${calEscape(ev.titulo)}</button><div>${calEscape(ev.cursoDetalle?.nombreCurso||'')}</div></td><td>${ev.instructorClassId?'INSTRUCTOR'+(ev.isParticipant?' · PARTICIPANTE':''):'PARTICIPANTE / EVENTO'}</td><td>${ev.instructorClass?calEscape('Asistencia: '+ev.instructorClass.attendanceState+' · Evidencias: '+ev.instructorClass.evidenceState):'—'}</td></tr>`).join('')}</tbody></table>`:'<p>No hay eventos para este mes y filtro.</p>';return;
+    list.innerHTML=events.length?`<table class="cpi-cal-list"><thead><tr><th>Fecha / horario</th><th>Clase / grupo</th><th>Referencia</th><th>Registro</th></tr></thead><tbody>${events.map(ev=>`<tr class="${ev.instructorClassId?'cpi-cal-assigned':''}${ev.id===calState.selectedEventId?' is-current-event':''}"><td>${calEscape(calFormatRange(ev))}</td><td><button data-cal-event="${calEscape(ev.id)}">${calEscape(ev.cursoDetalle?.codigoCurso||'')} · ${calEscape(ev.titulo)}</button><div>${calEscape(ev.cursoDetalle?.nombreCurso||'')}</div></td><td>${ev.instructorClassId?'INSTRUCTOR'+(ev.isParticipant?' · PARTICIPANTE':''):'PARTICIPANTE / EVENTO'}</td><td>${ev.instructorClass?calEscape('Asistencia: '+ev.instructorClass.attendanceState+' · Evidencias: '+ev.instructorClass.evidenceState):'—'}</td></tr>`).join('')}</tbody></table>`:'<p>No hay eventos para este mes y filtro.</p>';return;
   }
   const modal = document.getElementById('cpcCalendarModal');
   if (!modal) return;
-  modal.querySelector('[data-cal-month]').textContent = calMonthLabel(calState.viewDate);
   const grid = modal.querySelector('[data-cal-grid]');
   const year = calState.viewDate.getFullYear();
   const month = calState.viewDate.getMonth();
   const first = new Date(year, month, 1);
   const mondayIndex = (first.getDay() + 6) % 7;
   const start = new Date(year, month, 1 - mondayIndex);
-  const today = new Date();
+  const today = calToday();
   let html = '';
 
   for (let i = 0; i < 42; i++) {
@@ -233,10 +253,11 @@ function calRenderMonth() {
     const events = calEventsForDay(day);
     const other = day.getMonth() !== month;
     const isToday = calSameDay(day, today);
-    const chips = events.slice(0, 2).map(ev => {
+    const shown=events.slice(0,2),picked=events.find(ev=>ev.id===calState.selectedEventId);if(picked&&!shown.includes(picked))shown[shown.length-1]=picked;
+    const chips = shown.map(ev => {
       const code = calClean(ev.cursoDetalle?.codigoCurso);
       const label = `${ev.instructorClassId?'INSTRUCTOR · ':''}${code ? `${code} · ` : ''}${ev.titulo || ev.tipoEvento || 'Evento'}`;
-      return `<button class="cpc-cal-eventchip${ev.instructorClassId?' cpi-cal-assigned':''}" type="button" data-cal-event="${calEscape(ev.id)}" title="${calEscape(label)}">${calEscape(label)}</button>`;
+      return `<button class="cpc-cal-eventchip${ev.instructorClassId?' cpi-cal-assigned':''}${ev.id===calState.selectedEventId?' is-current-event':''}" type="button" data-cal-event="${calEscape(ev.id)}" title="${calEscape(label)}">${calEscape(label)}</button>`;
     }).join('');
     const more = events.length > 2 ? `<div class="cpc-cal-more">+${events.length - 2} más</div>` : '';
     html += `<div class="cpc-cal-day${other ? ' is-other' : ''}${isToday ? ' is-today' : ''}"><div class="cpc-cal-daynum">${day.getDate()}</div>${chips}${more}</div>`;
@@ -284,9 +305,9 @@ function calEnsureModal() {
   modal.innerHTML = `
     <section class="cpc-cal-panel" role="dialog" aria-modal="true" aria-labelledby="cpcCalTitle">
       <header class="cpc-cal-top"><div class="cpc-cal-title"><span aria-hidden="true">▦</span><strong id="cpcCalTitle">Calendario</strong></div><button class="cpc-cal-close" type="button" aria-label="Cerrar">×</button></header>
-      <div class="cpc-cal-toolbar"><div class="cpc-cal-month" data-cal-month></div><div class="cpc-cal-nav"><button type="button" data-cal-prev>‹</button><button type="button" data-cal-today>Hoy</button><button type="button" data-cal-next>›</button></div></div>
+      <div class="cpc-cal-toolbar"><span class="cpc-cal-year" data-cal-year></span><div class="cpc-cal-nav cpc-cal-month-nav"><button type="button" data-cal-prev aria-label="Mes anterior">‹</button><div class="cpc-cal-month" data-cal-month></div><button type="button" data-cal-next aria-label="Mes siguiente">›</button></div><button class="cpc-cal-today" type="button" data-cal-today>Hoy</button></div>
       <div class="cpi-cal-controls"><div class="cpc-cal-control-group" role="group" aria-label="Vista"><span class="cpc-cal-label">Vista</span><div class="cpc-cal-options"><button type="button" data-cal-view="calendar" aria-label="Calendario" title="Calendario" aria-pressed="true"><span aria-hidden="true">▦</span><small>Calendario</small></button><button type="button" data-cal-view="list" aria-label="Lista" title="Lista" aria-pressed="false"><span aria-hidden="true">☷</span><small>Lista</small></button></div></div><div class="cpc-cal-control-group" role="group" aria-label="Eventos"><span class="cpc-cal-label">Eventos</span><div class="cpc-cal-options"><button type="button" data-cal-filter="all" aria-label="Todos los eventos" title="Todos los eventos" aria-pressed="true"><span aria-hidden="true">◉</span><small>Todos los eventos</small></button><button type="button" data-cal-filter="assigned" aria-label="Clases asignadas" title="Clases asignadas" aria-pressed="false" hidden><span aria-hidden="true">⚑</span><small>Clases asignadas</small></button></div></div></div>
-      <div class="cpc-cal-body" data-cpc-cal-body><div class="cpc-cal-weekdays"><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div></div><div class="cpc-cal-grid" data-cal-grid></div></div>
+      <div class="cpc-cal-event-nav"><button type="button" data-cal-event-prev aria-label="Evento anterior">‹</button><span>Evento</span><button type="button" data-cal-event-next aria-label="Próximo evento">›</button><small data-cal-event-reference role="status" aria-live="polite"></small></div><div class="cpc-cal-body" data-cpc-cal-body><div class="cpc-cal-weekdays"><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div></div><div class="cpc-cal-grid" data-cal-grid></div></div>
     </section>`;
   document.body.appendChild(modal);
 
@@ -297,8 +318,10 @@ function calEnsureModal() {
   detail.innerHTML = `<div class="cpc-cal-detail-card"><div class="cpc-cal-detail-head"><div data-cal-detail-body></div><button type="button" aria-label="Cerrar">×</button></div></div>`;
   document.body.appendChild(detail);
 
-  modal.querySelectorAll('[data-cal-filter]').forEach(button=>button.onclick=()=>{calState.filter=button.dataset.calFilter;calRenderMonth();});
+  modal.querySelectorAll('[data-cal-filter]').forEach(button=>button.onclick=()=>{calState.filter=button.dataset.calFilter;calState.selectedEventId='';calRenderMonth();});
   modal.querySelectorAll('[data-cal-view]').forEach(button=>button.onclick=()=>{calState.view=button.dataset.calView;calRenderMonth();});
+  modal.querySelector('[data-cal-event-prev]').onclick=()=>calGoEvent('previous');
+  modal.querySelector('[data-cal-event-next]').onclick=()=>calGoEvent('next');
   const closeMain = () => { modal.hidden = true; detail.hidden = true; document.body.classList.remove('modal-open'); };
   modal.querySelector('.cpc-cal-close').addEventListener('click', closeMain);
   modal.addEventListener('click', e => { if (e.target === modal) closeMain(); });
@@ -306,7 +329,7 @@ function calEnsureModal() {
   detail.addEventListener('click', e => { if (e.target === detail) detail.hidden = true; });
   modal.querySelector('[data-cal-prev]').addEventListener('click', () => { calState.viewDate = new Date(calState.viewDate.getFullYear(), calState.viewDate.getMonth() - 1, 1); calRenderMonth(); });
   modal.querySelector('[data-cal-next]').addEventListener('click', () => { calState.viewDate = new Date(calState.viewDate.getFullYear(), calState.viewDate.getMonth() + 1, 1); calRenderMonth(); });
-  modal.querySelector('[data-cal-today]').addEventListener('click', () => { calState.viewDate = new Date(); calRenderMonth(); });
+  modal.querySelector('[data-cal-today]').addEventListener('click', () => { calState.viewDate = calToday();calState.selectedEventId=''; calRenderMonth(); });
   modal.addEventListener('click', e => {
     const chip = e.target.closest('[data-cal-event]');
     if (chip) calOpenDetail(chip.dataset.calEvent);
@@ -329,7 +352,7 @@ async function openCalendar() {
     calState.events = result.events;calState.isInstructor=result.isInstructor;
     modal.querySelector('[data-cal-filter=assigned]').hidden=!result.isInstructor;
     if(!result.isInstructor)calState.filter='all';
-    calState.viewDate = new Date();
+    calState.viewDate = calToday();calState.selectedEventId='';
     body.innerHTML = '<div class="cpc-cal-weekdays"><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div></div><div class="cpc-cal-grid" data-cal-grid></div><div class="cpi-cal-list-wrap" data-cal-list hidden></div>';
     calRenderMonth();
   } catch (error) {
