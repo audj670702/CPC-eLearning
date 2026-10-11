@@ -283,7 +283,7 @@ async function cpiLoad(identity,input) {
     const ownBatch=batch?.updatedBy===identity.member._id?batch:null;
     const evidence=[];
     for(const file of ownBatch?.rows || []){const record=await ccaOptional('CPC_Evidencias',file.operationId);if(record?.status==='UPLOADED' && record.uploadedBy===identity.member._id)evidence.push({operationId:record._id,name:record.fileName,url:record.fileUrl});}
-    return {classId:ctx.clase._id,courseCode:ctx.course.codigoCurso || '',courseName:ctx.course.nombreCurso || '',number:ctx.clase.numeroClase || '',...w,serverNow:new Date().toISOString(),rows:roster,
+    return {classId:ctx.clase._id,courseCode:ctx.course.codigoCurso || '',courseName:ctx.course.nombreCurso || '',number:ctx.clase.numeroClase || '',topic:ctx.clase.tema || '',...w,serverNow:new Date().toISOString(),rows:roster,
         attendanceLocked:!!attendance || !w.open,evidenceLocked:!!closed || (!!batch && !ownBatch) || !w.open,
         attendanceSaved:!!ownAttendance,evidenceSent:closed?.updatedBy===identity.member._id,
         evidence,batch:ownBatch?.rows || [],maxBytes:CCA_MAX_BYTES,partLength:CCA_PART_LENGTH};
