@@ -261,6 +261,8 @@ async function cpiList(identity) {
     if(!identity.isInstructor)return {isInstructor:false,classes:[],serverNow:new Date().toISOString()};
     const lists=await Promise.all(['instructor1','instructor2'].map(k=>ccaAll(wixData.query('CPC_Clases').eq(k,identity.user._id))));
     const classes=[...new Map(lists.flat().map(c=>[c._id,c])).values()].filter(c=>c.activo!==false);
+    const instructorNames=new Map();
+    for(const id of new Set(classes.flatMap(c=>[ccaRef(c.instructor1),ccaRef(c.instructor2)]).filter(Boolean))){const u=await ccaOptional('CPC_Usuario',id);instructorNames.set(id,u?.nombreCompleto || [u?.nombre,u?.apellidoPaterno,u?.apellidoMaterno].filter(Boolean).join(' '));}
     const courses=new Map();
     for(const id of new Set(classes.map(c=>ccaRef(c.curso))))courses.set(id,await ccaOptional('CPC_Cursos',id));
     const receiptIds=classes.flatMap(c=>['ATTENDANCE','EVIDENCE_CLOSED'].map(kind=>cpiReceiptId(kind,c._id))),receipts=new Map();
@@ -270,7 +272,7 @@ async function cpiList(identity) {
         const courseId=ccaRef(c.curso),course=courses.get(courseId);if(!course || course.activo===false)continue;
         const a=receipts.get(cpiReceiptId('ATTENDANCE',c._id)),e=receipts.get(cpiReceiptId('EVIDENCE_CLOSED',c._id));
         const w=cpiWindow({clase:c,course});
-        result.push({id:c._id,courseId,courseCode:course.codigoCurso || '',courseName:course.nombreCurso || '',number:c.numeroClase || '',session:c.sesion || '',...w,
+        result.push({id:c._id,courseId,courseCode:course.codigoCurso || '',courseName:course.nombreCurso || '',number:c.numeroClase || '',instructorNames:[...new Set([ccaRef(c.instructor1),ccaRef(c.instructor2)].map(id=>instructorNames.get(id)).filter(Boolean))].join(' / '),session:c.sesion || '',...w,
             attendanceState:a?'CERRADO':w.open?'PENDIENTE':'FUERA_DE_HORARIO',evidenceState:e?'CERRADO':w.open?'PENDIENTE':'FUERA_DE_HORARIO'});
     }
     return {isInstructor:true,userId:identity.user._id,classes:result.sort((a,b)=>new Date(a.startAt).getTime()-new Date(b.startAt).getTime()),serverNow:new Date().toISOString()};

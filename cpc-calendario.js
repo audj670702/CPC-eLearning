@@ -1,4 +1,4 @@
-import { instructorContext, openInstructorClass } from './cpc-instructor.js?v=1.0.5';
+import { instructorContext, openInstructorClass } from './cpc-instructor.js?v=1.0.6';
 const CPC_CAL = {
   tokenStorageKey: 'cpc_wix_member_tokens',
   queryUrl: 'https://www.wixapis.com/wix-data/v2/items/query',
@@ -12,7 +12,7 @@ const CPC_CAL = {
   }
 };
 
-let calState = { events: [], viewDate: new Date(), view:'calendar',filter:'all',isInstructor:false,selectedEventId:'' };
+let calState = { events: [], viewDate: new Date(), view:'calendar',filter:'all',isInstructor:false,selectedEventId:'',sortKey:'start',sortDirection:1 };
 
 function calToken() {
   try { return JSON.parse(localStorage.getItem(CPC_CAL.tokenStorageKey) || 'null')?.accessToken?.value || ''; }
@@ -199,6 +199,8 @@ function calEnsureStyles() {
     /* Contenedor estable para Calendario, Lista y filtros */
     .cpc-cal-modal{place-items:start center;padding-top:20px}.cpc-cal-panel{height:calc(100dvh - 40px);max-height:900px;display:flex;flex-direction:column}.cpc-cal-panel>header,.cpc-cal-panel>.cpc-cal-toolbar,.cpc-cal-panel>.cpi-cal-controls,.cpc-cal-panel>.cpc-cal-event-reference{flex-shrink:0}.cpc-cal-panel>.cpc-cal-body{flex:1;min-height:0;max-height:none;overflow:auto}.cpc-cal-panel .cpc-cal-grid{min-height:100%}.cpc-cal-panel .cpc-cal-day{min-height:82px}.cpc-cal-panel .cpi-cal-list-wrap{min-height:100%}
     @media(max-width:620px){.cpc-cal-modal{padding:8px;place-items:start center}.cpc-cal-panel{height:calc(100dvh - 16px);max-height:none}.cpc-cal-panel>.cpc-cal-body{max-height:none}.cpc-cal-panel .cpc-cal-day{min-height:72px}}
+
+    .cpi-cal-list{min-width:720px}.cpi-cal-list th{font-size:11px;font-weight:500;background:#f0f5f9;white-space:nowrap}.cpi-cal-list th button{display:inline-flex;align-items:center;gap:5px;font-weight:500;padding:0;font-size:11px}.cpi-cal-list th button span{color:#64748b}.cpi-cal-list td{font-size:12px;font-weight:400}.cpi-cal-list td:first-child,.cpi-cal-list th:first-child{width:35px;text-align:center}.cpi-cal-list td:nth-child(2){white-space:nowrap}.cpi-cal-list tr[data-cal-event]{cursor:pointer}.cpi-cal-list tr[data-cal-event]:hover{box-shadow:inset 0 0 0 999px #245d8c0b}.cpi-cal-list tr[data-cal-event]:focus-visible{outline:2px solid #245d8c;outline-offset:-2px}.cpc-cal-month-nav [hidden]{display:none}
   `;
   document.head.appendChild(style);
 }
@@ -229,6 +231,11 @@ function calGoEvent(direction){
  calState.selectedEventId=event.id;const [y,m,d]=calMexicoDay(event._fechaInicio).split('-').map(Number);calState.viewDate=new Date(y,m-1,d,12);calRenderMonth();
  const main=document.getElementById('cpcCalendarModal');const selected=main?.querySelector('.is-current-event');selected?.scrollIntoView?.({block:'nearest',behavior:'smooth'});
 }
+function calListRows(){
+ const events=calFilteredEvents().filter(e=>e._fechaInicio).slice().sort((a,b)=>a._fechaInicio.getTime()-b._fechaInicio.getTime()||String(a.id).localeCompare(String(b.id)));
+ const rows=events.map((ev,i)=>({ev,line:i+1,start:ev._fechaInicio.getTime(),code:ev.cursoDetalle?.codigoCurso||'',className:ev.instructorClass?.number?`Clase ${ev.instructorClass.number}`:ev.numeroClase?`Clase ${ev.numeroClase}`:ev.titulo||ev.tipoEvento||'Evento',course:ev.cursoDetalle?.nombreCurso||'',instructor:ev.instructorClass?.instructorNames||ev.instructorNombre||ev.instructor1Nombre||''}));
+ const key=calState.sortKey;return rows.sort((a,b)=>{const x=a[key],y=b[key];return (typeof x==='number'?x-y:String(x).localeCompare(String(y),'es',{sensitivity:'base',numeric:true}))*calState.sortDirection||a.line-b.line;});
+}
 function calRenderMonth() {
   const main=document.getElementById('cpcCalendarModal');if(!main)return;
   main.querySelector('[data-cal-year]').textContent=calState.viewDate.getFullYear();
@@ -240,10 +247,11 @@ function calRenderMonth() {
   const list=main.querySelector('[data-cal-list]'),gridEl=main.querySelector('[data-cal-grid]'),weekdays=main.querySelector('.cpc-cal-weekdays');
   if(!list||!gridEl)return;
   list.hidden=calState.view!=='list';gridEl.hidden=calState.view==='list';weekdays.hidden=calState.view==='list';
+  main.querySelector('[data-cal-year]').hidden=calState.view==='list';main.querySelector('[data-cal-prev]').hidden=calState.view==='list';main.querySelector('[data-cal-next]').hidden=calState.view==='list';
   if(calState.view==='list'){
-    const prefix=`${calState.viewDate.getFullYear()}-${String(calState.viewDate.getMonth()+1).padStart(2,'0')}`;
-    const events=calFilteredEvents().filter(ev=>calMexicoDay(ev._fechaInicio).startsWith(prefix));
-    list.innerHTML=events.length?`<table class="cpi-cal-list"><thead><tr><th>Fecha / horario</th><th>Clase / grupo</th><th>Referencia</th><th>Registro</th></tr></thead><tbody>${events.map(ev=>`<tr class="${ev.instructorClassId?'cpi-cal-assigned':''}${ev.id===calState.selectedEventId?' is-current-event':''}"><td>${calEscape(calFormatRange(ev))}</td><td><button data-cal-event="${calEscape(ev.id)}">${calEscape(ev.cursoDetalle?.codigoCurso||'')} · ${calEscape(ev.titulo)}</button><div>${calEscape(ev.cursoDetalle?.nombreCurso||'')}</div></td><td>${ev.instructorClassId?'INSTRUCTOR'+(ev.isParticipant?' · PARTICIPANTE':''):'PARTICIPANTE / EVENTO'}</td><td>${ev.instructorClass?calEscape('Asistencia: '+ev.instructorClass.attendanceState+' · Evidencias: '+ev.instructorClass.evidenceState):'—'}</td></tr>`).join('')}</tbody></table>`:'<p>No hay eventos para este mes y filtro.</p>';return;
+    main.querySelector('[data-cal-month]').textContent='Todos los eventos';
+    const rows=calListRows(),columns=[['line','No.'],['start','Fecha / inicio'],['code','Código de curso'],['className','Clase'],['course','Curso'],['instructor','Instructor']];
+    list.innerHTML=rows.length?`<table class="cpi-cal-list"><thead><tr>${columns.map(([key,label])=>`<th aria-sort="${calState.sortKey===key?(calState.sortDirection===1?'ascending':'descending'):'none'}"><button type="button" data-cal-sort="${key}" title="Ordenar ${label}: A–Z / Z–A">${label} <span aria-hidden="true">${calState.sortKey===key?(calState.sortDirection===1?'↑':'↓'):'↕'}</span></button></th>`).join('')}</tr></thead><tbody>${rows.map(({ev,line,code,className,course,instructor})=>`<tr tabindex="0" data-cal-event="${calEscape(ev.id)}" aria-label="Ver detalles de ${calEscape(className)}" class="${ev.instructorClassId?'cpi-cal-assigned':''}${ev.id===calState.selectedEventId?' is-current-event':''}"><td>${line}</td><td>${calEscape(new Intl.DateTimeFormat('es-MX',{timeZone:'America/Mexico_City',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}).format(ev._fechaInicio))}</td><td>${calEscape(code||'—')}</td><td>${calEscape(className)}</td><td>${calEscape(course||'—')}</td><td>${calEscape(instructor||'—')}</td></tr>`).join('')}</tbody></table>`:'<p>No hay eventos para este filtro.</p>';return;
   }
   const modal = document.getElementById('cpcCalendarModal');
   if (!modal) return;
@@ -339,9 +347,11 @@ function calEnsureModal() {
   modal.querySelector('[data-cal-next]').addEventListener('click', () => { calState.viewDate = new Date(calState.viewDate.getFullYear(), calState.viewDate.getMonth() + 1, 1); calRenderMonth(); });
   modal.querySelector('[data-cal-today]').addEventListener('click', () => { calState.viewDate = calToday();calState.selectedEventId=''; calRenderMonth(); });
   modal.addEventListener('click', e => {
+    const sort=e.target.closest('[data-cal-sort]');if(sort){const key=sort.dataset.calSort;calState.sortDirection=calState.sortKey===key?-calState.sortDirection:1;calState.sortKey=key;calRenderMonth();return;}
     const chip = e.target.closest('[data-cal-event]');
     if (chip) calOpenDetail(chip.dataset.calEvent);
   });
+  modal.addEventListener('keydown',e=>{const row=e.target.closest('tr[data-cal-event]');if(row&&(e.key==='Enter'||e.key===' ')){e.preventDefault();calOpenDetail(row.dataset.calEvent);}});
   return modal;
 }
 
