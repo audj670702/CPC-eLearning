@@ -1,0 +1,11 @@
+{
+  "name": "cpc-elearning",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/instructor-backend.cjs && node tests/instructor-ui.cjs && node tests/instructor-calendar.cjs"
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0"
+  }
+}

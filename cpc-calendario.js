@@ -1,3 +1,4 @@
+import { instructorContext, openInstructorClass } from './cpc-instructor.js?v=1.0.0';
 const CPC_CAL = {
   tokenStorageKey: 'cpc_wix_member_tokens',
   queryUrl: 'https://www.wixapis.com/wix-data/v2/items/query',
@@ -11,7 +12,7 @@ const CPC_CAL = {
   }
 };
 
-let calState = { events: [], viewDate: new Date() };
+let calState = { events: [], viewDate: new Date(), view:'calendar',filter:'all',isInstructor:false };
 
 function calToken() {
   try { return JSON.parse(localStorage.getItem(CPC_CAL.tokenStorageKey) || 'null')?.accessToken?.value || ''; }
@@ -155,7 +156,14 @@ async function loadCalendarForCurrentUser() {
     .filter(ev => ev._fechaInicio)
     .sort((a, b) => a._fechaInicio - b._fechaInicio);
 
-  return { state: 'OK', events: visible };
+  const instructor=await instructorContext();
+  const byClass=new Map(visible.filter(ev=>ev.origen==='CLASE' && ev.origenId).map(ev=>[ev.origenId,ev]));
+  for(const c of instructor.classes){
+    const existing=byClass.get(c.id);
+    if(existing){existing.instructorClassId=c.id;existing.instructorClass=c;existing.isParticipant=true;}
+    else visible.push({id:'instructor:'+c.id,instructorClassId:c.id,instructorClass:c,tipoEvento:'CLASE',titulo:'Clase '+c.number,cursoDetalle:{codigoCurso:c.courseCode,nombreCurso:c.courseName},_fechaInicio:calDateValue(c.startAt),_fechaFin:calDateValue(c.endAt)});
+  }
+  return { state: 'OK',isInstructor:instructor.isInstructor,events:visible.filter(ev=>ev._fechaInicio).sort((a,b)=>a._fechaInicio.getTime()-b._fechaInicio.getTime()) };
 }
 
 function calEnsureStyles() {
@@ -186,10 +194,22 @@ function calSameDay(a, b) {
 }
 
 function calEventsForDay(day) {
-  return calState.events.filter(ev => ev._fechaInicio && calSameDay(ev._fechaInicio, day));
+  return calFilteredEvents().filter(ev=>ev._fechaInicio && calMexicoDay(ev._fechaInicio)===`${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`);
 }
 
+function calMexicoDay(date){return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Mexico_City',year:'numeric',month:'2-digit',day:'2-digit'}).format(date);}
+function calFilteredEvents(){return calState.events.filter(ev=>calState.filter!=='assigned'||ev.instructorClassId);}
 function calRenderMonth() {
+  const main=document.getElementById('cpcCalendarModal');if(!main)return;
+  const list=main.querySelector('[data-cal-list]'),gridEl=main.querySelector('[data-cal-grid]'),weekdays=main.querySelector('.cpc-cal-weekdays');
+  if(!list||!gridEl)return;
+  list.hidden=calState.view!=='list';gridEl.hidden=calState.view==='list';weekdays.hidden=calState.view==='list';
+  if(calState.view==='list'){
+    main.querySelector('[data-cal-month]').textContent=calMonthLabel(calState.viewDate);
+    const prefix=`${calState.viewDate.getFullYear()}-${String(calState.viewDate.getMonth()+1).padStart(2,'0')}`;
+    const events=calFilteredEvents().filter(ev=>calMexicoDay(ev._fechaInicio).startsWith(prefix));
+    list.innerHTML=events.length?`<table class="cpi-cal-list"><thead><tr><th>Fecha / horario</th><th>Clase / grupo</th><th>Referencia</th><th>Registro</th></tr></thead><tbody>${events.map(ev=>`<tr class="${ev.instructorClassId?'cpi-cal-assigned':''}"><td>${calEscape(calFormatRange(ev))}</td><td><button data-cal-event="${calEscape(ev.id)}">${calEscape(ev.cursoDetalle?.codigoCurso||'')} · ${calEscape(ev.titulo)}</button><div>${calEscape(ev.cursoDetalle?.nombreCurso||'')}</div></td><td>${ev.instructorClassId?'INSTRUCTOR'+(ev.isParticipant?' · PARTICIPANTE':''):'PARTICIPANTE / EVENTO'}</td><td>${ev.instructorClass?calEscape('Asistencia: '+ev.instructorClass.attendanceState+' · Evidencias: '+ev.instructorClass.evidenceState):'—'}</td></tr>`).join('')}</tbody></table>`:'<p>No hay eventos para este mes y filtro.</p>';return;
+  }
   const modal = document.getElementById('cpcCalendarModal');
   if (!modal) return;
   modal.querySelector('[data-cal-month]').textContent = calMonthLabel(calState.viewDate);
@@ -209,8 +229,8 @@ function calRenderMonth() {
     const isToday = calSameDay(day, today);
     const chips = events.slice(0, 2).map(ev => {
       const code = calClean(ev.cursoDetalle?.codigoCurso);
-      const label = `${code ? `${code} · ` : ''}${ev.titulo || ev.tipoEvento || 'Evento'}`;
-      return `<button class="cpc-cal-eventchip" type="button" data-cal-event="${calEscape(ev.id)}" title="${calEscape(label)}">${calEscape(label)}</button>`;
+      const label = `${ev.instructorClassId?'INSTRUCTOR · ':''}${code ? `${code} · ` : ''}${ev.titulo || ev.tipoEvento || 'Evento'}`;
+      return `<button class="cpc-cal-eventchip${ev.instructorClassId?' cpi-cal-assigned':''}" type="button" data-cal-event="${calEscape(ev.id)}" title="${calEscape(label)}">${calEscape(label)}</button>`;
     }).join('');
     const more = events.length > 2 ? `<div class="cpc-cal-more">+${events.length - 2} más</div>` : '';
     html += `<div class="cpc-cal-day${other ? ' is-other' : ''}${isToday ? ' is-today' : ''}"><div class="cpc-cal-daynum">${day.getDate()}</div>${chips}${more}</div>`;
@@ -219,7 +239,7 @@ function calRenderMonth() {
 }
 
 function calFormatRange(ev) {
-  const fmt = d => d ? new Intl.DateTimeFormat('es-MX', { weekday:'short', day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }).format(d) : '';
+  const fmt = d => d ? new Intl.DateTimeFormat('es-MX', { timeZone:'America/Mexico_City', weekday:'short', day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }).format(d) : '';
   const a = fmt(ev._fechaInicio), b = fmt(ev._fechaFin);
   return a && b ? `${a} — ${b}` : a || b;
 }
@@ -227,6 +247,7 @@ function calFormatRange(ev) {
 function calOpenDetail(eventId) {
   const ev = calState.events.find(item => item.id === eventId);
   if (!ev) return;
+  if(ev.instructorClassId){openInstructorClass(ev.instructorClassId);return;}
   const detail = document.getElementById('cpcCalendarDetail');
   const body = detail.querySelector('[data-cal-detail-body]');
   const curso = ev.cursoDetalle;
@@ -258,6 +279,7 @@ function calEnsureModal() {
     <section class="cpc-cal-panel" role="dialog" aria-modal="true" aria-labelledby="cpcCalTitle">
       <header class="cpc-cal-top"><strong id="cpcCalTitle">Calendario</strong><button class="cpc-cal-close" type="button" aria-label="Cerrar">×</button></header>
       <div class="cpc-cal-toolbar"><div class="cpc-cal-month" data-cal-month></div><div class="cpc-cal-nav"><button type="button" data-cal-prev>‹</button><button type="button" data-cal-today>Hoy</button><button type="button" data-cal-next>›</button></div></div>
+      <div class="cpi-cal-controls"><select data-cal-filter aria-label="Filtrar calendario"><option value="all">Todos mis eventos</option><option value="assigned" hidden>Clases asignadas</option></select><select data-cal-view aria-label="Vista del calendario"><option value="calendar">Calendario</option><option value="list">Lista</option></select></div>
       <div class="cpc-cal-body" data-cpc-cal-body><div class="cpc-cal-weekdays"><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div></div><div class="cpc-cal-grid" data-cal-grid></div></div>
     </section>`;
   document.body.appendChild(modal);
@@ -269,6 +291,8 @@ function calEnsureModal() {
   detail.innerHTML = `<div class="cpc-cal-detail-card"><div class="cpc-cal-detail-head"><div data-cal-detail-body></div><button type="button" aria-label="Cerrar">×</button></div></div>`;
   document.body.appendChild(detail);
 
+  modal.querySelector('[data-cal-filter]').onchange=e=>{calState.filter=e.target.value;calRenderMonth();};
+  modal.querySelector('[data-cal-view]').onchange=e=>{calState.view=e.target.value;calRenderMonth();};
   const closeMain = () => { modal.hidden = true; detail.hidden = true; document.body.classList.remove('modal-open'); };
   modal.querySelector('.cpc-cal-close').addEventListener('click', closeMain);
   modal.addEventListener('click', e => { if (e.target === modal) closeMain(); });
@@ -296,9 +320,11 @@ async function openCalendar() {
       body.innerHTML = '<div class="cpc-cal-empty"><strong>No existe un usuario CPC activo vinculado a esta cuenta.</strong></div>';
       return;
     }
-    calState.events = result.events;
+    calState.events = result.events;calState.isInstructor=result.isInstructor;
+    modal.querySelector('[value=assigned]').hidden=!result.isInstructor;
+    if(!result.isInstructor){calState.filter='all';modal.querySelector('[data-cal-filter]').value='all';}
     calState.viewDate = new Date();
-    body.innerHTML = '<div class="cpc-cal-weekdays"><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div></div><div class="cpc-cal-grid" data-cal-grid></div>';
+    body.innerHTML = '<div class="cpc-cal-weekdays"><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div></div><div class="cpc-cal-grid" data-cal-grid></div><div class="cpi-cal-list-wrap" data-cal-list hidden></div>';
     calRenderMonth();
   } catch (error) {
     console.error('CPC calendario:', error);
