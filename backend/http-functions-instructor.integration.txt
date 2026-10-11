@@ -1,0 +1,5 @@
+// Integración pendiente en el http-functions.js vigente: no sustituye ese archivo.
+import { cpcInstructorHttp } from 'backend/cpcInstructorHttp';
+export async function post_cpcInstructor(request) {
+    return cpcInstructorHttp(request);
+}
