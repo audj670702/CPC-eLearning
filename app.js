@@ -1,6 +1,6 @@
 import { initInstructor } from './cpc-instructor.js?v=1.0.6';
 import { createClient, OAuthStrategy } from 'https://esm.sh/@wix/sdk';
-import { tvMarkup, initCpcTv } from './cpc-tv.js?v=0.5.24';
+import { tvMarkup, initCpcTv } from './cpc-tv.js?v=0.5.24-senal2';
 
 const app = document.getElementById('app');
 if (!app) throw new Error('No se encontró #app');

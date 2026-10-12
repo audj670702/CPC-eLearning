@@ -7,7 +7,7 @@
 // desde el Panel CPC (cpcPwaContext → tv). Como en CPC no hay recarga de contexto global,
 // el canal se vuelve a consultar cada POLL_MS mientras está al aire.
 
-const TVDI_HLS = "https://motortv.scad.mx/hls/canal.m3u8";
+const TVDI_HLS = "https://tvdigital.scad.mx/cfcx/canal/index.m3u8";
 const CPC_CHANNEL_NAME = "TV Capacitación";
 const DIGITAL_CHANNEL_NAME = "TV Digital";
 const POLL_MS = 10000;
