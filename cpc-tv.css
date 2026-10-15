@@ -1,12 +1,13 @@
-/* CPC · Monitor TV · v0.5.17
-   Réplica del monitor de NEXUS (css/nexus.css): valores efectivos de la franja superior
-   (.top-band), el monitor, la barra, el menú de opciones y la pantalla completa. */
+/* CPC · Monitor TV · v0.1.54
+   Réplica del monitor de CPC (cpc-tv.css) / NEXUS (css/nexus.css): franja superior
+   (.top-band), monitor, barra, menú de opciones y pantalla completa.
+   Colores tomados de la paleta de CPC (--blue / --blue-dark / --line). */
 .tv-home {
   --tv-ink: #132b4d;
-  --tv-muted: #657a9b;
-  --tv-line: #d5e0f1;
+  --tv-muted: #62748a;
+  --tv-line: #dce5ef;
   --tv-primary: #123f6d;
-  --tv-shadow: 0 5px 18px rgba(18, 63, 109, .07);
+  --tv-shadow: 0 5px 18px rgba(15, 47, 85, .07);
 }
 
 /* Franja superior: el monitor ocupa un tercio (máx. 300 px) a la derecha. */
@@ -34,10 +35,9 @@
 .tv-options-head strong { font-size: .82rem; }
 .tv-options-close { width: 28px; height: 28px; border: 0; border-radius: 8px; background: #f1f5fb; color: var(--tv-muted); font-size: 1rem; cursor: pointer; }
 .tv-options-label { font-size: .6rem; font-weight: 800; letter-spacing: .12em; color: var(--tv-muted); text-transform: uppercase; }
-/* Segunda columna un poco más ancha para que "TV Capacitación" quepa completo. */
-.tv-options .tv-channels { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 3px; background: #eef3fa; border-radius: 9px; padding: 3px; }
+.tv-options .tv-channels { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 3px; background: #eef3fa; border-radius: 9px; padding: 3px; }
 .tv-options .channel { min-height: 34px; min-width: 0; border: 0; border-radius: 7px; background: transparent; color: var(--tv-muted); font-size: .72rem; font-weight: 700; letter-spacing: -.01em; padding: 0 6px; display: flex; align-items: center; justify-content: center; gap: 5px; cursor: pointer; transition: background .15s ease, color .15s ease; }
-.tv-options .channel:hover { color: #205985; }
+.tv-options .channel:hover { color: #0f2f55; }
 .tv-options .channel.is-active { background: var(--tv-primary); color: #fff; }
 .tv-options .channel span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tv-options-actions { display: flex; flex-direction: column; gap: 2px; border-top: 1px solid #edf2f9; padding-top: 6px; }
@@ -47,12 +47,73 @@
 .tv-opt-btn svg, #tvMuteIcon svg { color: var(--tv-primary); display: block; }
 #tvMuteIcon { display: inline-grid; place-items: center; }
 
-/* Pantalla completa dentro de la app (iPhone con TV Capacitación). */
+/* Pantalla completa dentro de la app (iPhone con Canal CPC). */
 .tv-fs-layer { position: fixed; inset: 0; z-index: 10000; background: transparent; pointer-events: none; }
 .tv-fs-layer[hidden] { display: none; }
 .tv-fs-close { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 12px); right: calc(env(safe-area-inset-right, 0px) + 12px); z-index: 10000; width: 44px; height: 44px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .18); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; pointer-events: auto; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 body.tv-fs { overflow: hidden; }
 body.tv-fs .tv-monitor { position: fixed !important; inset: 0; z-index: 9999; width: 100vw !important; height: 100vh; height: 100dvh; max-width: none; aspect-ratio: auto; border-radius: 0 !important; background: #000; }
 body.tv-fs .tv-monitor > * { grid-area: 1 / 1; }
-/* La barra superior de CPC es sticky con desenfoque: se oculta para que no tape el monitor. */
+/* La barra superior y el botón flotante de mensajes de CPC no deben tapar el monitor. */
 body.tv-fs .topbar { visibility: hidden; }
+
+/* Shared compact television: controls remain outside the YouTube player. */
+.tv-console { padding:6px; background:linear-gradient(145deg,#30435b,#152338); border:1px solid #455a73; border-radius:12px; box-shadow:0 4px 10px #10233d22; }
+.tv-bar { color:#f1f5f9; gap:5px; }
+.tv-caption { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.tv-caption strong { font:800 11px system-ui; letter-spacing:.08em; }
+.tv-caption .tv-now { color:#cbd5e1; font-size:9px; }
+#tvContentTitle { color:#aebed0; font-size:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#tvContentTitle:empty { display:none; }
+.tv-options .tv-channels { grid-template-columns:1fr; max-height:260px; overflow:auto; }
+.tv-options .channel { justify-content:flex-start; text-align:left; }
+.tv-monitor video[hidden], .tv-screen-center[hidden], .tv-placeholder[hidden] { display:none; }
+/* Keep the screen horizontal; contain preserves the original video framing. */
+.tv-monitor { aspect-ratio:16 / 9; min-height:0; }
+.top-band { grid-template-columns:minmax(0,1fr) minmax(214px,min(34%,300px)); }
+@media(max-width:380px) { .top-band { gap:5px; } }
+.tv-resume { width:100%; border:0; border-radius:5px; padding:5px; background:#edf4fc; color:#174f82; font-size:10px; cursor:pointer; }
+.tv-resume[hidden] { display:none; }
+
+/* v0.1.59 · compact toolbar and channel information over the picture. */
+.tv-console { box-sizing:border-box; padding:6px 6px 0; }
+.tv-caption { position:absolute; z-index:3; inset:0 0 auto; padding:8px 8px 16px; gap:3px; pointer-events:none; color:#fff; background:linear-gradient(to bottom,rgba(0,0,0,.72),transparent); }
+.tv-channel-heading { display:flex; align-items:baseline; gap:6px; min-width:0; }
+.tv-caption strong { flex:none; font:700 11px system-ui; letter-spacing:.05em; }
+.tv-caption .tv-now { color:#fff; font:500 11px system-ui; }
+#tvContentTitle { color:#edf4fc; font:400 11px system-ui; text-shadow:0 1px 2px #000; }
+.tv-bar { padding:0; gap:2px; height:44px; justify-content:space-around; }
+.tv-toolbar-button { flex:0 0 auto; display:flex; align-items:center; justify-content:center; gap:4px; min-width:44px; height:44px; padding:0 5px; margin:0; border:0; border-radius:7px; background:transparent; color:#edf4fc; cursor:pointer; box-shadow:none; }
+.tv-channel-trigger { font:500 11px system-ui; }
+.tv-toolbar-button:hover,.tv-toolbar-button[aria-expanded="true"] { background:#ffffff1a; }
+.tv-toolbar-button:focus-visible { outline:2px solid #93c5fd; outline-offset:-2px; }
+.tv-sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+.tv-options { top:0; right:0; box-sizing:border-box; width:max(100%,240px); max-width:calc(100vw - 24px); padding:8px; gap:6px; }
+.tv-options-head { min-height:44px; }
+.tv-options-close { width:44px; height:44px; }
+.tv-options .tv-channels { box-sizing:border-box; max-height:264px; }
+.tv-options .channel { min-height:44px; justify-content:space-between; }
+.tv-options .channel.is-active::after { content:"✓"; flex:none; }
+.tv-options .channel span { white-space:normal; overflow:visible; }
+.tv-monitor:fullscreen .tv-caption,.tv-monitor:-webkit-full-screen .tv-caption,body.tv-fs .tv-caption { padding:16px 16px 30px; }
+.tv-monitor:fullscreen .tv-caption strong,.tv-monitor:-webkit-full-screen .tv-caption strong,body.tv-fs .tv-caption strong { font-size:16px; }
+.tv-monitor:fullscreen .tv-now,.tv-monitor:-webkit-full-screen .tv-now,body.tv-fs .tv-now { font-size:14px; }
+
+.tv-toolbar-button #tvMuteIcon svg { color:inherit; }
+
+/* v0.5.33 · loading feedback stays inside the screen, without adding height. */
+.tv-load-indicator { position:absolute; inset:auto 0 0; z-index:4; pointer-events:none; color:#fff; background:linear-gradient(transparent,rgba(0,0,0,.75)); padding:12px 8px 8px; font:400 11px system-ui; }
+.tv-load-indicator[hidden] { display:none; }
+.tv-load-line { position:absolute; bottom:0; left:0; right:0; height:3px; background:#ffffff26; overflow:hidden; }
+.tv-load-line::after { content:""; position:absolute; height:100%; width:38%; background:#78c4ff; transform:translateX(-105%); }
+.tv-load-indicator[data-state="loading"] .tv-load-line::after,
+.tv-load-indicator[data-state="reconnecting"] .tv-load-line::after { animation:tv-signal-loading 1.35s ease-in-out infinite; }
+.tv-load-indicator[data-state="error"] .tv-load-line::after { width:100%; transform:none; background:#ffaf94; }
+.tv-load-indicator[data-state="action"] .tv-load-line,
+.tv-load-indicator[data-state="idle"] .tv-load-line { display:none; }
+@keyframes tv-signal-loading { to { transform:translateX(365%); } }
+@media(prefers-reduced-motion:reduce) {
+ .tv-load-indicator[data-state="loading"] .tv-load-line::after,
+ .tv-load-indicator[data-state="reconnecting"] .tv-load-line::after { animation:none;transform:none;width:100%;opacity:.65; }
+}
+

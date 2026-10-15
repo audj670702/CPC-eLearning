@@ -1,59 +1,244 @@
-// CPC · Monitor TV · v0.5.17
-// Réplica del monitor de NEXUS. Fuentes de referencia en el repo nexus:
-//   js/tv.js        → reproducción, canales, sonido y pantalla completa (copiado tal cual).
-//   js/modes.js     → initTvOptions (menú de opciones del monitor).
-//   js/back-nav.js  → el botón Atrás cierra el menú y la pantalla completa.
-// Única adaptación: el canal "eo" de NEXUS aquí es "cpc" = TV Capacitación, configurado
-// desde el Panel CPC (cpcPwaContext → tv). Como en CPC no hay recarga de contexto global,
-// el canal se vuelve a consultar cada POLL_MS mientras está al aire.
+import { resolveSysTransmission } from "./cpc-tv-model.js?v=0.5.33";
+// CPC · Monitor TV · v0.5.33
+// CH 00: TV Capacitación mediante la sesión existente de CPC.
+// CH 01–02: señales digitales. CH 03+: catálogo y programación de SYS.
 
 const TVDI_HLS = "https://tvdigital.scad.mx/cfcx/canal/index.m3u8";
 const CPC_CHANNEL_NAME = "TV Capacitación";
 const DIGITAL_CHANNEL_NAME = "TV Digital";
 const POLL_MS = 10000;
 
+const API_BASE = "https://www.scad.mx/_functions";
+const DIGITAL_CHANNELS = [
+  { codigo: "CH01", numero: 1, nombre: "TV Digital Internet", tipo: "VPS", senal: TVDI_HLS },
+  { codigo: "CH02", numero: 2, nombre: "Programación variada", tipo: "VPS", senal: "https://tvdigital.scad.mx/cfcx/prueba/index.m3u8" }
+];
+let channels = [{ codigo: "cpc", numero: 0, nombre: CPC_CHANNEL_NAME, tipo: "EO" }, ...DIGITAL_CHANNELS];
+let selected = "cpc", catalogTimer = null, clockOffset = 0, sysTransmission = null;
+let selectionVersion = 0, sysLoading = false, cpcLoading = false;
 let context = null, hls = null, tvMuted = true, communityVideoKey = "";
 const $ = s => document.querySelector(s);
 
 // ---------- marcado (idéntico a nexus/index.html) ----------
 export function tvMarkup() {
   return `<section class="tv-section" aria-label="${CPC_CHANNEL_NAME}">
-      <div class="tv-console">
-        <div id="tvMonitor" class="tv-monitor"><video id="tvVideo" autoplay muted playsinline preload="auto" aria-label="Canal en vivo"></video><div id="tvPlaceholder" class="tv-placeholder"></div><div id="tvScreenCenter" class="tv-screen-center"><span class="tv-play">▶</span></div></div>
-        <div class="tv-bar">
-          <span id="tvNowLabel" class="tv-now">${CPC_CHANNEL_NAME}</span>
-          <button id="btnTvOptions" class="tv-options-trigger" type="button" aria-label="Opciones del monitor" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
-        </div>
-        <div id="tvFsLayer" class="tv-fs-layer" hidden><button id="btnCloseTvFs" class="tv-fs-close" type="button" aria-label="Salir de pantalla completa"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-        <div id="tvOptions" class="tv-controls tv-options" role="dialog" aria-label="Opciones del monitor" hidden>
-          <div class="tv-options-head"><strong>Monitor</strong><button id="btnTvOptionsClose" class="tv-options-close" type="button" aria-label="Cerrar">×</button></div>
-          <span class="tv-options-label">Canal</span>
-          <div class="tv-channels">
-            <button class="channel" type="button" data-channel="internet"><span>${DIGITAL_CHANNEL_NAME}</span></button>
-            <button class="channel is-active" type="button" data-channel="cpc"><span id="cpcChannelName">${CPC_CHANNEL_NAME}</span></button>
-          </div>
-          <div class="tv-options-actions">
-            <button id="btnTvMute" class="tv-opt-btn" type="button"><span id="tvMuteIcon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l4 6M21 9l-4 6"/></svg></span><span id="tvMuteText">Activar sonido</span></button>
-            <button id="btnTvExpand" class="tv-opt-btn" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span>Pantalla completa</span></button>
-          </div>
-        </div>
+    <div class="tv-console">
+      <div id="tvMonitor" class="tv-monitor">
+        <video id="tvVideo" autoplay muted playsinline preload="auto" aria-label="Canal en vivo"></video>
+        <div id="tvPlaceholder" class="tv-placeholder"></div>
+        <div id="tvScreenCenter" class="tv-screen-center"><span class="tv-play">▶</span></div>
+        <div id="tvLoadIndicator" class="tv-load-indicator" role="status" aria-live="polite" hidden><span id="tvLoadText"></span><span class="tv-load-line" aria-hidden="true"></span></div>
+        <div class="tv-caption"><div class="tv-channel-heading"><strong id="tvChannelNumber">CH 00</strong><span id="tvNowLabel" class="tv-now">${CPC_CHANNEL_NAME}</span></div><small id="tvContentTitle"></small></div>
       </div>
-    </section>`;
+      <button id="tvResume" class="tv-resume" type="button" hidden>▶ Reproducir</button>
+      <div class="tv-bar">
+        <button id="btnTvMute" class="tv-toolbar-button" type="button" aria-label="Activar sonido"><span id="tvMuteIcon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l4 6M21 9l-4 6"/></svg></span><span id="tvMuteText" class="tv-sr-only">Activar sonido</span></button>
+        <button id="btnTvOptions" class="tv-toolbar-button tv-channel-trigger" type="button" aria-label="Elegir canal" aria-controls="tvOptions" aria-expanded="false"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="m8 2 4 4 4-4"/></svg><span>Canales</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+        <button id="btnTvExpand" class="tv-toolbar-button" type="button" aria-label="Ampliar monitor"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+      </div>
+      <div id="tvFsLayer" class="tv-fs-layer" hidden><button id="btnCloseTvFs" class="tv-fs-close" type="button" aria-label="Salir de pantalla completa">×</button></div>
+      <div id="tvOptions" class="tv-controls tv-options" role="dialog" aria-label="Elegir canal" hidden>
+        <div class="tv-options-head"><strong>Canales</strong><button id="btnTvOptionsClose" class="tv-options-close" type="button" aria-label="Cerrar canales">×</button></div>
+        <div class="tv-channels" id="tvChannelList"></div>
+      </div>
+    </div>
+  </section>`;
 }
 
 // ---------- nexus/js/tv.js ----------
 function esc(v=""){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function destroyHls(){if(hls){hls.destroy();hls=null}const v=$("#tvVideo");if(!v)return;v.pause();v.removeAttribute("src");v.load()}
+function setStreamState(state,message=''){
+  const el=$("#tvLoadIndicator"),label=$("#tvLoadText");
+  if(!el||!label)return;
+  const busy=state==='loading'||state==='reconnecting';
+  el.dataset.state=state;el.hidden=!message;label.textContent=message;
+  $("#tvMonitor")?.setAttribute('aria-busy',String(busy));
+}
+let digitalRetryTimer = null, digitalWatchTimer = null;
+let digitalNeedsGesture = false, digitalRetries = 0, digitalGeneration = 0;
+function stopDigitalRecovery(){
+  clearTimeout(digitalRetryTimer);clearInterval(digitalWatchTimer);
+  digitalRetryTimer=null;digitalWatchTimer=null;
+}
+function digitalFallback(needsGesture=false){
+  digitalNeedsGesture=needsGesture;
+  if(needsGesture)setStreamState('action','Pulsa Reproducir');
+  const b=$("#tvResume");if(b){b.textContent=needsGesture?'▶ Reproducir':'↻ Reintentar señal';b.hidden=false}
+  const v=$("#tvVideo");if(v&&needsGesture)v.controls=true;
+}
+function attemptDigitalPlay(v){
+  const generation=digitalGeneration;
+  const result=v.play();
+  result?.catch(error=>{
+    if(generation!==digitalGeneration)return;
+    if(error?.name==='AbortError')return;
+    if(error?.name==='NotAllowedError'){digitalFallback(true);return}
+    retryDigital();
+  });
+}
+function retryDigital(){
+  if(currentChannel()?.tipo!=='VPS'||digitalRetryTimer||digitalNeedsGesture)return;
+  digitalFallback();
+  if(digitalRetries>=3){setStreamState('error','Señal no disponible · Reintenta');return}
+  setStreamState('reconnecting','Reconectando…');
+  const generation=digitalGeneration, delay=5000*(2**digitalRetries++);
+  digitalRetryTimer=setTimeout(()=>{
+    digitalRetryTimer=null;
+    if(generation===digitalGeneration&&document.visibilityState==='visible'&&currentChannel()?.tipo==='VPS')playUrl(currentChannel().senal,true);
+  },delay);
+}
+function watchDigital(v){
+  let lastTime=v.currentTime, lastProgress=Date.now(), hasPlayed=false;
+  v.onerror=retryDigital;
+  v.onwaiting=()=>{if(!digitalNeedsGesture)setStreamState(hasPlayed?'reconnecting':'loading',hasPlayed?'Recuperando señal…':'Cargando señal…')};
+  v.onstalled=v.onwaiting;
+  v.onplaying=()=>{
+    hasPlayed=true;lastProgress=Date.now();digitalNeedsGesture=false;
+    clearTimeout(digitalRetryTimer);digitalRetryTimer=null;
+    $("#tvResume").hidden=true;v.controls=false;setStreamState('playing');
+  };
+  digitalWatchTimer=setInterval(()=>{
+    if(document.visibilityState!=='visible'||digitalNeedsGesture){lastProgress=Date.now();return}
+    if(v.currentTime!==lastTime){
+      lastTime=v.currentTime;lastProgress=Date.now();
+      // A sustained connection earns a fresh recovery budget.
+      if(v.currentTime>10)digitalRetries=0;
+    }else if(Date.now()-lastProgress>(hasPlayed?45000:60000))retryDigital();
+  },5000);
+}
+function destroyHls(){
+  digitalGeneration++;stopDigitalRecovery();
+  const v=$("#tvVideo");
+  if(v){v.onerror=null;v.onplaying=null;v.onwaiting=null;v.onstalled=null;v.controls=false}
+  if(hls){hls.destroy();hls=null}
+  if(v){v.pause();v.removeAttribute("src");v.load()}
+}
 function setPlaceholder(active){const v=$("#tvVideo"),p=$("#tvPlaceholder"),c=$("#tvScreenCenter");if(p)p.hidden=!active;if(c)c.hidden=!active;if(v)v.hidden=active}
-function playUrl(url){communityVideoKey="";const c=$("#tvScreenCenter");if(c)c.innerHTML='<span class="tv-play">▶</span>';destroyHls();const v=$("#tvVideo");if(!v||!url){setPlaceholder(true);return}setPlaceholder(false);v.muted=tvMuted;if(/\.m3u8($|\?)/i.test(url)){if(v.canPlayType("application/vnd.apple.mpegurl")){v.src=url;v.play().catch(()=>{});return}if(window.Hls&&Hls.isSupported()){hls=new Hls({enableWorker:true,lowLatencyMode:false,backBufferLength:30});hls.loadSource(url);hls.attachMedia(v);hls.on(Hls.Events.MANIFEST_PARSED,()=>v.play().catch(()=>{}));hls.on(Hls.Events.ERROR,(_,d)=>{if(d.fatal)setPlaceholder(true)});return}}v.src=url;v.play().catch(()=>{})}
-function youtubeEmbedUrl(tv){const id=String(tv?.youtubeId||"").trim();if(!id)return"";const start=Math.max(0,Math.floor(Number(tv?.segundoInicio)||0));const u=new URL(`https://www.youtube.com/embed/${encodeURIComponent(id)}`);u.searchParams.set("autoplay","1");u.searchParams.set("mute",tvMuted?"1":"0");u.searchParams.set("playsinline","1");u.searchParams.set("controls","1");u.searchParams.set("rel","0");u.searchParams.set("enablejsapi","1");u.searchParams.set("start",String(start));u.searchParams.set("loop","1");u.searchParams.set("playlist",id);u.searchParams.set("origin",location.origin);return u.toString()}
+function playUrl(url,recovering=false){
+  communityVideoKey="";
+  const c=$("#tvScreenCenter");if(c)c.innerHTML='<span class="tv-play">▶</span>';
+  destroyHls();
+  if(!recovering)digitalRetries=0;
+  digitalNeedsGesture=false;
+  const v=$("#tvVideo");
+  if(!v||!url){setPlaceholder(true);setStreamState('error','Señal no configurada');return}
+  setStreamState(recovering?'reconnecting':'loading',recovering?'Reconectando…':'Cargando señal…');
+  setPlaceholder(false);
+  v.defaultMuted=tvMuted;v.muted=tvMuted;v.playsInline=true;
+  v.setAttribute('webkit-playsinline','');
+  watchDigital(v);
+  if(/\.m3u8($|\?)/i.test(url)){
+    // Safari/iOS use native HLS. Android/Chromium use the MSE player when available.
+    const apple=/iPad|iPhone|iPod/.test(navigator.userAgent)||
+      (/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1)||
+      (/Safari/.test(navigator.userAgent)&&!/Chrome|Chromium|Android/.test(navigator.userAgent));
+    if(!apple&&window.Hls&&Hls.isSupported()){
+      hls=new Hls({enableWorker:true,lowLatencyMode:false,backBufferLength:30,maxBufferLength:30});
+      hls.attachMedia(v);hls.loadSource(url);
+      hls.on(Hls.Events.MANIFEST_PARSED,()=>attemptDigitalPlay(v));
+      hls.on(Hls.Events.ERROR,(_,d)=>{
+        if(!d.fatal)return;
+        if(d.type===Hls.ErrorTypes.MEDIA_ERROR&&digitalRetries<3){
+          digitalRetries++;setStreamState('reconnecting','Recuperando señal…');hls.recoverMediaError();
+        }else retryDigital();
+      });
+      return;
+    }
+    if(v.canPlayType("application/vnd.apple.mpegurl")){
+      v.src=url;attemptDigitalPlay(v);return;
+    }
+  }
+  v.src=url;attemptDigitalPlay(v);
+}
+function resumeDigital(){
+  const v=$("#tvVideo");
+  if(!v||currentChannel()?.tipo!=='VPS')return;
+  clearTimeout(digitalRetryTimer);digitalRetryTimer=null;digitalRetries=0;
+  digitalNeedsGesture=false;
+  // Keep the loaded stream and invoke play within the user's tap.
+  setStreamState('loading','Cargando señal…');
+  if(!v.error&&(v.currentSrc||v.getAttribute('src')||hls)){attemptDigitalPlay(v);return}
+  playUrl(currentChannel().senal);
+}
+function youtubeEmbedUrl(tv){const id=String(tv?.youtubeId||"").trim();if(!id)return"";const start=Math.max(0,Math.floor(Number(tv?.segundoInicio)||0));const u=new URL(`https://www.youtube.com/embed/${encodeURIComponent(id)}`);u.searchParams.set("autoplay","1");u.searchParams.set("mute",tvMuted?"1":"0");u.searchParams.set("playsinline","1");u.searchParams.set("controls","1");u.searchParams.set("rel","0");u.searchParams.set("enablejsapi","1");u.searchParams.set("start",String(start));u.searchParams.set("origin",location.origin);return u.toString()}
 function sendYoutubeCommand(func){const f=$("#tvCommunityFrame");if(f?.contentWindow)f.contentWindow.postMessage(JSON.stringify({event:"command",func,args:[]}),"https://www.youtube.com")}
-function renderCpcTransmission(force=false){const tv=context?.tv,id=String(tv?.youtubeId||"").trim(),center=$("#tvScreenCenter");if(!id){communityVideoKey="";destroyHls();setPlaceholder(true);if(center)center.innerHTML='<span class="tv-play">▶</span>';return}const key=`${tv?.modo||""}:${id}`;if(!force&&communityVideoKey===key)return;communityVideoKey=key;destroyHls();const v=$("#tvVideo"),p=$("#tvPlaceholder");if(v)v.hidden=true;if(p)p.hidden=false;if(center){center.hidden=false;center.innerHTML=`<iframe id="tvCommunityFrame" class="tv-youtube-frame" src="${esc(youtubeEmbedUrl(tv))}" title="${esc(tv.titulo||CPC_CHANNEL_NAME)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen"></iframe>`}}
+function renderCpcTransmission(force=false){const tv=context?.tv,id=String(tv?.youtubeId||"").trim(),center=$("#tvScreenCenter");if(!id){setStreamState('idle',selected==='cpc'&&!loadContext?'Inicia sesión para este canal':'Sin programación');communityVideoKey="";destroyHls();setPlaceholder(true);if(center)center.innerHTML='<span class="tv-play">▶</span>';return}const key=`${tv?.modo||""}:${tv?.itemId||""}:${tv?.occurrence??""}:${id}`;if(!force&&communityVideoKey===key)return;communityVideoKey=key;$("#tvResume").hidden=true;destroyHls();setStreamState('loading','Cargando señal…');const v=$("#tvVideo"),p=$("#tvPlaceholder");if(v)v.hidden=true;if(p)p.hidden=false;if(center){center.hidden=false;center.innerHTML=`<iframe id="tvCommunityFrame" class="tv-youtube-frame" src="${esc(youtubeEmbedUrl(tv))}" title="${esc(tv.titulo||CPC_CHANNEL_NAME)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen"></iframe>`;
+const frame=$("#tvCommunityFrame");frame?.addEventListener('load',()=>{frame.contentWindow?.postMessage(JSON.stringify({event:'listening',id:'cpc-monitor'}),'https://www.youtube.com');for(const event of ['onStateChange','onAutoplayBlocked','onError'])frame.contentWindow?.postMessage(JSON.stringify({event:'command',func:'addEventListener',args:[event]}),'https://www.youtube.com')});}}
 function playCpc(){renderCpcTransmission(true)}
-function setChannel(ch){const m=$("#tvMonitor");if(m)m.dataset.channel=ch;document.querySelectorAll(".channel[data-channel]").forEach(b=>b.classList.toggle("is-active",b.dataset.channel===ch));const nl=$("#tvNowLabel");if(nl)nl.textContent=ch==="cpc"?CPC_CHANNEL_NAME:DIGITAL_CHANNEL_NAME;if(ch==="cpc"){playCpc();startCpcPolling()}else{stopCpcPolling();playUrl(TVDI_HLS)}}
-// En NEXUS el contexto llega una vez; aquí también llega por sondeo, así que sólo se
-// vuelve a cargar el reproductor si cambió lo que el Panel CPC tiene al aire.
-export function setTvContext(next){context=next||null;if($("#tvMonitor")?.dataset.channel==="cpc")renderCpcTransmission(false)}
+function currentChannel(){return channels.find(c=>c.codigo===selected)}
+function renderChannels(){
+  const list=$("#tvChannelList");
+  if(list)list.innerHTML=channels.map(c=>`<button class="channel ${c.codigo===selected?'is-active':''}" type="button" data-channel="${esc(c.codigo)}" aria-pressed="${c.codigo===selected}"><span>CH ${String(c.numero).padStart(2,'0')} · ${esc(c.nombre)}</span></button>`).join('');
+  const c=currentChannel();
+  if(!c)return;
+  $("#tvChannelNumber").textContent=`CH ${String(c.numero).padStart(2,'0')}`;
+  $("#tvNowLabel").textContent=c.nombre;
+}
+function showPlayFallback(){setStreamState('action','Pulsa Reproducir');const b=$("#tvResume");if(b){b.textContent="▶ Reproducir";b.hidden=false}}
+function setTitle(title=''){const el=$("#tvContentTitle");if(el){el.textContent=title;el.title=title}}
+function setChannel(ch){
+  if(!channels.some(c=>c.codigo===ch))return;
+  selected=ch;selectionVersion++;sysTransmission=null;sysLoading=false;
+  stopCpcPolling();
+  const m=$("#tvMonitor");if(m){m.dataset.channel=ch;m.dataset.source=currentChannel()?.tipo==='VPS'?'hls':'youtube'}
+  communityVideoKey='';
+  // Remove the old YouTube iframe before switching to an HLS signal.
+  const center=$("#tvScreenCenter");if(center)center.innerHTML='<span class="tv-play">▶</span>';
+  renderChannels();setTitle();$("#tvResume").hidden=true;setStreamState('loading','Consultando señal…');
+  if(ch==='cpc'){playCpc();if(loadContext)setStreamState('loading','Consultando señal…');setTitle(context?.tv?.titulo||'');startCpcPolling()}
+  else {
+    const c=currentChannel();
+    if(c.tipo==='VPS')playUrl(c.senal);else {destroyHls();setPlaceholder(true)}
+    refreshSys();pollTimer=setInterval(()=>{if(document.visibilityState==='visible')refreshSys()},POLL_MS);
+  }
+}
+export function setTvContext(next){context=next||null;if(selected==='cpc'){renderCpcTransmission(false);setTitle(context?.tv?.titulo||'')}}
+function stepChannel(direction){const i=channels.findIndex(c=>c.codigo===selected);setChannel(channels[(i+direction+channels.length)%channels.length].codigo)}
+async function readPublic(path){
+  const response=await fetch(`${API_BASE}/${path}`,{cache:'no-store',signal:AbortSignal.timeout(8000)});
+  if(!response.ok)throw new Error(`TV ${response.status}`);
+  const data=await response.json();
+  if(data.ok!==true){const error=new Error(data.mensaje||data.codigo||'Sin programación');error.code=data.codigo;throw error;}
+  const server=Date.parse(response.headers.get('Date'));
+  if(Number.isFinite(server))clockOffset=server-Date.now();
+  return data;
+}
+async function refreshCatalog(){
+  try{
+    const data=await readPublic('tvdCanales');
+    if(!Array.isArray(data.canales))throw new Error('Catálogo inválido');
+    const seen=new Set();
+    const sys=data.canales.filter(c=>/^CH\d{2}$/.test(c.codigo)&&Number(c.numero)>0&&Number(c.numero)===Number(c.codigo.slice(2))&&['VPS','VIRTUAL'].includes(c.tipo)&&!seen.has(c.codigo)&&seen.add(c.codigo));
+    const previous=currentChannel();
+    channels=[{codigo:'cpc',numero:0,nombre:CPC_CHANNEL_NAME,tipo:'EO'},...DIGITAL_CHANNELS.map(f=>({...f,...sys.find(c=>c.codigo===f.codigo)})),...sys.filter(c=>c.numero>2)];
+    const next=currentChannel();
+    if(!next)setChannel('CH01');
+    else if(previous&&(previous.tipo!==next.tipo||previous.senal!==next.senal))setChannel(selected);
+    else renderChannels();
+  }catch(error){console.warn('[CPC TV] Catálogo SYS:',error)}
+}
+async function refreshSys(){
+  if(selected==='cpc'||sysLoading)return;
+  const version=selectionVersion,code=selected;
+  sysLoading=true;
+  try{
+    const data=await readPublic(`tvdTransmision?canal=${encodeURIComponent(code)}`);
+    if(version!==selectionVersion)return;
+    sysTransmission=data;
+    renderSysTransmission();
+  }catch(error){
+    if(version===selectionVersion){sysTransmission=null;setTitle('');if(currentChannel()?.tipo==='VIRTUAL'){destroyHls();setPlaceholder(true);setStreamState(error.code==='SIN_TRANSMISION_ACTIVA'?'idle':'error',error.code==='SIN_TRANSMISION_ACTIVA'?'Sin programación':'No se pudo cargar la señal');}}
+  }finally{if(version===selectionVersion)sysLoading=false}
+}
+function renderSysTransmission(){
+  if(!sysTransmission||selected==='cpc')return;
+  const tv=resolveSysTransmission(sysTransmission,Date.now()+clockOffset);
+  if(currentChannel()?.tipo==='VPS'){setTitle(sysTransmission.transmision?.videoAlAire||'');return}
+  setTitle(tv?.titulo||'');
+  if(!tv){destroyHls();setPlaceholder(true);setStreamState('idle','Sin programación');return}
+  const previous=context;
+  context={tv};renderCpcTransmission(false);context=previous;
+}
 // v0.3.3 · Pantalla completa del monitor.
 // 1) API nativa (Android, escritorio, iPad). 2) iPhone con canal de video: reproductor nativo.
 // 3) Si nada de lo anterior existe (iPhone con YouTube): el monitor ocupa toda la pantalla
@@ -72,10 +257,11 @@ function toggleTvFullscreen(){
     try{const r=req.call(m);if(r&&typeof r.then==="function"){r.then(()=>{try{screen.orientation?.lock?.("landscape").catch(()=>{})}catch{}}).catch(()=>setTimeout(enterTvPseudoFullscreen,200))}return}catch{}
   }
   const v=$("#tvVideo");
-  if(m.dataset.channel!=="cpc"&&v&&!v.hidden&&typeof v.webkitEnterFullscreen==="function"){try{v.webkitEnterFullscreen();closeTvOptions();return}catch{}}
+  if(currentChannel()?.tipo==="VPS"&&v&&!v.hidden&&typeof v.webkitEnterFullscreen==="function"){try{v.webkitEnterFullscreen();closeTvOptions();return}catch{}}
   closeTvOptions();setTimeout(enterTvPseudoFullscreen,200);
 }
-function initTv(){const m=$("#tvMonitor"),x=$("#btnTvExpand"),c=$(".tv-controls");if(!m||!c)return;m.dataset.channel="cpc";c.addEventListener("click",e=>{const b=e.target.closest("[data-channel]");if(b)setChannel(b.dataset.channel)});x?.addEventListener("click",()=>toggleTvFullscreen());$("#btnCloseTvFs")?.addEventListener("click",exitTvPseudoFullscreen);$("#btnTvMute")?.addEventListener("click",()=>{tvMuted=!tvMuted;const v=$("#tvVideo"),i=$("#tvMuteIcon");if(v)v.muted=tvMuted;if(i)i.innerHTML=tvMuted?'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>':'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>';const tt=$("#tvMuteText");if(tt)tt.textContent=tvMuted?"Activar sonido":"Silenciar";if(m.dataset.channel==="cpc")sendYoutubeCommand(tvMuted?"mute":"unMute");else if(!tvMuted)v?.play().catch(()=>{})});setChannel("cpc")}
+function initTv(){const m=$("#tvMonitor"),x=$("#btnTvExpand"),c=$(".tv-controls");if(!m||!c)return;m.dataset.channel="cpc";c.addEventListener("click",e=>{const b=e.target.closest("[data-channel]");if(b)setChannel(b.dataset.channel)});x?.addEventListener("click",()=>toggleTvFullscreen());$("#btnCloseTvFs")?.addEventListener("click",exitTvPseudoFullscreen);$("#btnTvMute")?.addEventListener("click",()=>{tvMuted=!tvMuted;const v=$("#tvVideo"),i=$("#tvMuteIcon");if(v)v.muted=tvMuted;if(i)i.innerHTML=tvMuted?'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>':'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>';const tt=$("#tvMuteText");if(tt)tt.textContent=tvMuted?"Activar sonido":"Silenciar";$("#btnTvMute")?.setAttribute("aria-label",tvMuted?"Activar sonido":"Silenciar");if(currentChannel()?.tipo!=="VPS")sendYoutubeCommand(tvMuted?"mute":"unMute");else if(!tvMuted)v?.play().catch(()=>{})});$("#tvResume")?.addEventListener('click',()=>{if(currentChannel()?.tipo==='VPS')resumeDigital();else{setStreamState('loading','Cargando señal…');sendYoutubeCommand('playVideo');$("#tvResume").hidden=true}});
+setChannel("cpc")}
 
 // ---------- nexus/js/modes.js · initTvOptions ----------
 function initTvOptions() {
@@ -127,8 +313,21 @@ function bindDocumentOnce() {
     const panel = $("#tvOptions"), trigger = $("#btnTvOptions");
     if (panel && !panel.hidden && !panel.contains(e.target) && !trigger?.contains(e.target)) { panel.hidden = true; trigger?.setAttribute("aria-expanded", "false"); }
   });
+  window.addEventListener('message',event=>{
+    const frame=$("#tvCommunityFrame");
+    if(event.origin!=='https://www.youtube.com'||event.source!==frame?.contentWindow)return;
+    let data;try{data=typeof event.data==='string'?JSON.parse(event.data):event.data}catch{return}
+    if(data?.event==='onAutoplayBlocked')showPlayFallback();
+    const playerState=data?.event==='onStateChange'?data.info:data?.event==='infoDelivery'?data.info?.playerState:null;
+    if(playerState===1){$("#tvResume").hidden=true;setStreamState('playing')}
+    if(playerState===3)setStreamState('loading','Cargando señal…');
+    if(playerState===2)showPlayFallback();
+    if(data?.event==='onError'){setStreamState('error','Video no disponible');$("#tvResume").hidden=false}
+    if(data?.event==='onStateChange'&&data.info===0){communityVideoKey='';if(selected==='cpc')refreshCpc();else refreshSys()}
+  });
+  setInterval(()=>{if(document.visibilityState==='visible'&&selected!=='cpc')renderSysTransmission()},1000);
   // tv.js: Esc sale de la pantalla completa dentro de la app.
-  document.addEventListener("keydown", e => { if (e.key === "Escape" && document.body.classList.contains("tv-fs")) exitTvPseudoFullscreen(); });
+  document.addEventListener("keydown", e => { if(e.key==="Escape"){closeTvOptions();if(document.body.classList.contains("tv-fs"))exitTvPseudoFullscreen()} });
   // back-nav.js
   window.addEventListener("popstate", () => {
     if (ignorePops > 0) { ignorePops--; return; }
@@ -136,16 +335,19 @@ function bindDocumentOnce() {
     if (top) closeModal(top);
   });
   new MutationObserver(scan).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["hidden"] });
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && $("#tvMonitor")?.dataset.channel === "cpc") refreshCpc(); });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { refreshCatalog(); communityVideoKey=''; if(selected === "cpc") refreshCpc(); else { if(currentChannel()?.tipo==='VPS'){const v=$("#tvVideo");if(v&&!digitalNeedsGesture&&(v.paused||v.error))resumeDigital()} refreshSys(); } } });
 }
 
-// ---------- TV Capacitación: contexto desde el Panel CPC ----------
-let loadContext = null, pollTimer = null;
+// ---------- TV Capacitación: contexto desde el Panel ADM (Wix) ----------
+let loadContext = null, pollTimer = null, contextGeneration = 0;
 function stopCpcPolling() { if (pollTimer) clearInterval(pollTimer); pollTimer = null; }
 async function refreshCpc() {
-  if (!loadContext) return;
-  try { const next = await loadContext(); if ($("#tvMonitor")?.dataset.channel === "cpc") setTvContext(next); }
-  catch (error) { console.warn("[CPC TV] TV Capacitación:", error); }
+  if (!loadContext || cpcLoading) return;
+  cpcLoading=true;
+  const generation=contextGeneration;
+  try { const next = await loadContext(); if (generation===contextGeneration && $("#tvMonitor")?.dataset.channel === "cpc") setTvContext(next); }
+  catch (error) { console.warn("[CPC TV] TV Capacitación:", error);if(generation===contextGeneration&&selected==='cpc'&&!communityVideoKey)setStreamState('error','No se pudo cargar la señal'); }
+  finally { if(generation===contextGeneration)cpcLoading=false; }
 }
 function startCpcPolling() {
   stopCpcPolling();
@@ -157,10 +359,14 @@ function startCpcPolling() {
 // options.loadContext: () => Promise<contexto cpcPwaContext> (con .tv). Sin sesión: se omite
 // y TV Capacitación muestra el monitor en espera (▶), igual que NEXUS sin transmisión.
 export function initCpcTv(options = {}) {
+  contextGeneration++;context=null;cpcLoading=false;
   loadContext = typeof options.loadContext === "function" ? options.loadContext : null;
   stopCpcPolling();
   communityVideoKey = "";
   bindDocumentOnce();
   initTvOptions();
   initTv();
+  clearInterval(catalogTimer);
+  refreshCatalog();
+  catalogTimer=setInterval(()=>{if(document.visibilityState==='visible')refreshCatalog()},60000);
 }
