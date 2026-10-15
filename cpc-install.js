@@ -1,10 +1,11 @@
 let deferredInstallPrompt = null;
 let installButtonBound = false;
+let installationConfirmed = false;
 
 function isAppInstalled() {
   return (
     window.matchMedia('(display-mode: standalone)').matches ||
-    window.navigator.standalone === true
+    window.navigator.standalone === true || installationConfirmed
   );
 }
 
@@ -13,13 +14,14 @@ function getInstallButton() {
 }
 
 function renderInstallOption() {
+  const installed = isAppInstalled();
+  window.dispatchEvent(new CustomEvent('cpc:installationchange', { detail: { installed } }));
   const button = getInstallButton();
   if (!button) return false;
 
-  const installed = isAppInstalled();
-
-  // CPC renderiza el botón dentro de app.js; en móvil debe permanecer visible.
-  button.style.display = 'inline-flex';
+  // Keep only the actionable install button; Ap1 reports the installed state.
+  button.hidden = installed;
+  button.style.display = installed ? 'none' : 'inline-flex';
   button.style.alignItems = 'center';
   button.style.visibility = 'visible';
   button.style.opacity = '1';
@@ -69,15 +71,20 @@ function bindInstallButtonOnce() {
 
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();
+  installationConfirmed = false;
   deferredInstallPrompt = event;
   renderInstallOption();
 });
 
 window.addEventListener('appinstalled', () => {
+  installationConfirmed = true;
   deferredInstallPrompt = null;
   renderInstallOption();
 });
 
+window.cpcIsAppInstalled = isAppInstalled;
+window.matchMedia('(display-mode: standalone)').addEventListener('change', renderInstallOption);
+window.addEventListener('pageshow', renderInstallOption);
 document.addEventListener('click', handleInstallClick);
 
 if (!bindInstallButtonOnce()) {

@@ -238,15 +238,15 @@ button { color: inherit; }
 .menu-icon { display: grid; gap: 4px; }
 .menu-icon span { display: block; width: 18px; height: 2px; border-radius: 2px; background: #12335c; }
 .top-band-left { display: flex; flex-direction: column; justify-content: space-between; gap: 10px; }
-.identity-card { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 4px 2px; }
+.identity-card { display: flex; flex-direction:column; align-items:flex-start; gap:8px; min-width: 0; padding: 4px 2px; }
 .identity-avatar-wrap { position: relative; flex: 0 0 auto; }
 .identity-avatar { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; display: grid; place-items: center; background: #eaf0f7; border: 2px solid #fff; box-shadow: 0 3px 10px rgba(31,59,91,.15); }
 .identity-initials { color: #24539a; font-weight: 800; font-size: 1.1rem; letter-spacing: .02em; }
 .identity-edit { position: absolute; right: -2px; bottom: -2px; width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; background: #12335c; color: #fff; display: grid; place-items: center; padding: 0; cursor: pointer; box-shadow: 0 2px 6px rgba(18,51,92,.3); }
 .identity-edit svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-.identity-copy { min-width: 0; display: grid; gap: 3px; }
+.identity-copy { min-width:0; width:100%; display:grid; gap:3px; }
 .identity-name { color: #12335c; font-size: .86rem; font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
-.identity-email { color: #718096; font-size: .64rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.identity-email { color:#718096; font-size:.64rem; white-space:normal; overflow-wrap:anywhere; }
 @media (max-width: 560px) {
   .identity-avatar { width: 54px; height: 54px; }
   .identity-name { font-size: .78rem; }

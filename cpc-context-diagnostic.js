@@ -1,4 +1,4 @@
-// CPC · Diagnóstico visible de contexto EO / CCA · v0.5.10
+// CPC · Diagnóstico visible de contexto EO / CCA · v0.5.34
 // Sólo lectura. No modifica autenticación, autorización ni contratos MNS.
 
 const TOKEN_KEY = 'cpc_wix_member_tokens';
@@ -61,7 +61,8 @@ function paint() {
   const eo = document.getElementById('cpcEoTitle');
   const cca = document.getElementById('cpcCca');
   if (eo) eo.textContent = state.eoNombre || '';
-  if (cca) cca.textContent = `Se${state.se} · Us${state.us} · EO${state.eo} · MNS${state.mns}`;
+  const installed = typeof window.cpcIsAppInstalled === 'function' ? window.cpcIsAppInstalled() : (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true);
+  if (cca) cca.textContent = `Se${state.se} · Us${state.us} · EO${state.eo} · MNS${state.mns} · Ap${installed ? 1 : 0}`;
 }
 
 function pick(obj, paths) {
@@ -144,5 +145,8 @@ const observer = new MutationObserver(() => {
 });
 if (!ensureDiagnosticUi()) observer.observe(document.documentElement, { childList:true, subtree:true });
 
+window.addEventListener('cpc:installationchange',paint);
+window.matchMedia('(display-mode: standalone)').addEventListener('change',paint);
+window.addEventListener('pageshow',paint);
 loadContext();
 monitorMns();

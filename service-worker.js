@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cpc-elearning-v0.5.33-monitor';
+const CACHE_NAME = 'cpc-elearning-v0.5.34-monitor';
 const APP_SHELL = [
   './',
   './index.html',
-  './cpc-tv.js?v=0.5.33',
-  './cpc-tv-model.js?v=0.5.33',
-  './cpc-tv.css?v=0.5.33',
+  './cpc-tv.js?v=0.5.34',
+  './cpc-tv-model.js?v=0.5.34',
+  './cpc-tv.css?v=0.5.34',
   './manifest.webmanifest',
   './assets/icon-192.png',
   './assets/icon-512.png',
