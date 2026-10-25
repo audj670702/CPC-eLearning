@@ -111,7 +111,7 @@ function render(member) {
     <main class="home-cpc">
       <div class="tv-home top-band">
         <div class="top-band-left">${member ? identityCardMarkup(member) : ''}<button class="install-btn tv-install-btn" type="button" disabled>Instalar app</button></div>
-        ${tvMarkup()}
+        ${tvMarkup({ staticEffect: true })}
       </div>
       <section class="modules-section" aria-label="Accesos CPC e-Learning">
         <button class="module-card accent-blue" type="button"><span class="module-icon">✉</span><span class="module-copy"><strong>MENSAJERÍA</strong><small>Comunicación CPC</small></span><span class="arrow">›</span></button>
@@ -241,7 +241,7 @@ async function loadCpcTvContext() {
 
 function initTv(member) {
   const memberId = String(member?.id || '').trim();
-  initCpcTv({ loadContext: memberId ? () => loadCpcTvContext() : null });
+  initCpcTv({ staticEffect: true, loadContext: memberId ? () => loadCpcTvContext() : null });
 }
 
 function bindUI() {
