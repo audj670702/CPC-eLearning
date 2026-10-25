@@ -1,4 +1,4 @@
-/* CPC · Monitor TV · v0.1.54
+/* CPC · Monitor TV · v0.5.35 (estilos desde v0.1.54)
    Réplica del monitor de CPC (cpc-tv.css) / NEXUS (css/nexus.css): franja superior
    (.top-band), monitor, barra, menú de opciones y pantalla completa.
    Colores tomados de la paleta de CPC (--blue / --blue-dark / --line). */
@@ -110,6 +110,7 @@ body.tv-fs .topbar { visibility: hidden; }
 .tv-load-indicator[data-state="reconnecting"] .tv-load-line::after { animation:tv-signal-loading 1.35s ease-in-out infinite; }
 .tv-load-indicator[data-state="error"] .tv-load-line::after { width:100%; transform:none; background:#ffaf94; }
 .tv-load-indicator[data-state="action"] .tv-load-line,
+.tv-load-indicator[data-state="notice"] .tv-load-line,
 .tv-load-indicator[data-state="idle"] .tv-load-line { display:none; }
 @keyframes tv-signal-loading { to { transform:translateX(365%); } }
 @media(prefers-reduced-motion:reduce) {
@@ -117,3 +118,15 @@ body.tv-fs .topbar { visibility: hidden; }
  .tv-load-indicator[data-state="reconnecting"] .tv-load-line::after { animation:none;transform:none;width:100%;opacity:.65; }
 }
 
+/* v0.5.35 · Estática al cambiar de canal: réplica del monitor del panel TV Digital (Wix).
+   Sólo se dibuja en apps que activan staticEffect (LOT). */
+.tv-static { position:absolute; inset:0; z-index:5; pointer-events:none; opacity:0;
+  background-image:repeating-radial-gradient(circle at 17% 32%, #fff 0 1px, transparent 1px 3px), repeating-radial-gradient(circle at 73% 61%, #888 0 1px, transparent 1px 4px);
+  background-color:#222; }
+.tv-static.on { animation:tvEstatica 450ms steps(6) forwards; }
+@keyframes tvEstatica {
+  0% { opacity:.95; background-position:0 0, 0 0; }
+  50% { opacity:.8; background-position:7px 3px, -5px 9px; }
+  100% { opacity:0; background-position:-4px 8px, 6px -2px; }
+}
+@media(prefers-reduced-motion:reduce) { .tv-static.on { animation:none; } }

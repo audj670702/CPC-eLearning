@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node tests/instructor-backend.cjs && node tests/instructor-ui.cjs && node tests/instructor-calendar.cjs"
+    "test": "node tests/instructor-backend.cjs && node tests/instructor-ui.cjs && node tests/instructor-calendar.cjs && node --test tests/tv-model.test.mjs tests/tv-youtube.test.mjs"
   },
   "devDependencies": {
     "jsdom": "26.1.0"
