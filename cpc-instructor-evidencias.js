@@ -97,7 +97,8 @@ export async function sendEvidence(){
     for(const q of S.queue)if(!q.sha256)q.sha256=await sha256Hex(q.file);
     await persistQueue();
     const files=S.queue.map(q=>({operationId:q.operationId,originalName:q.file.name,mimeType:q.file.type||'application/octet-stream',size:q.file.size,sha256:q.sha256}));
-    if(!S.data.batch.length){await request('EVIDENCE_BATCH',{classId,files});S.data.batch=files;}
+    const batchIds=(S.data.batch||[]).map(f=>f.operationId).join('|'),queueIds=files.map(f=>f.operationId).join('|');
+    if(batchIds!==queueIds){await request('EVIDENCE_BATCH',{classId,files});S.data.batch=files;}
     const failed=[];
     for(let i=0;i<S.queue.length;i++){
       const q=S.queue[i];if(q.completed)continue;
