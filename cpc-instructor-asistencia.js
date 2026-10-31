@@ -20,6 +20,7 @@ export function bindAttendance(){
     else row.justified=row.status==='AUSENTE'&&input.checked;
     storageWrite();S.rerender();
   });
+  document.querySelectorAll('[data-section="asistencia"] td').forEach(td=>td.onclick=e=>{const box=td.querySelector('input[data-cpi-key]');if(!box||box.disabled||e.target===box)return;box.click();});
   const toggle=$('cpiIncludeInstructors');if(toggle)toggle.onchange=e=>{S.includeInstructors=e.target.checked;S.rerender();};
   const save=$('cpiSave');if(save)save.onclick=e=>confirmAction(e.currentTarget,'attendance',saveAttendance);
 }
