@@ -32,3 +32,20 @@
 .cpi-bar{display:block;height:4px;background:#e2e8f0;border-radius:3px;margin-top:4px;overflow:hidden}
 .cpi-bar>span{display:block;height:100%;background:#245d8c;width:0;transition:width .2s}
 .cpi-muted{color:#64748b;font-size:12px}
+/* Instructor v1.1.1 · lista: búsqueda, filtros y estado por color */
+.cpi-list-controls{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+.cpi-search{position:relative;display:flex;align-items:center}
+.cpi-search input{flex:1;padding:10px 40px 10px 10px;border:1px solid #cbd5e1;border-radius:7px;font-size:14px;font-family:inherit}
+.cpi-search input::-webkit-search-cancel-button{display:none}
+.cpi-search [data-cpi-clear]{position:absolute;right:6px;width:30px;height:30px;border:0;background:#eef2f6;border-radius:6px;font-size:18px;line-height:1;color:#245d8c;cursor:pointer}
+.cpi-search [data-cpi-clear][hidden]{display:none}
+.cpi-filters{display:flex;gap:6px;flex-wrap:wrap}
+.cpi-filter{flex:1 1 0;min-width:96px;padding:8px 6px;border:1px solid #cbd5e1;border-left:4px solid #94a3b8;border-radius:7px;background:#fff;color:#1e293b;font-size:12px;font-weight:500;cursor:pointer}
+.cpi-filter[data-estado="PROXIMA"]{border-left-color:#245d8c}
+.cpi-filter[data-estado="EN_PROCESO"]{border-left-color:#e99029}
+.cpi-filter[data-estado="CERRADA"]{border-left-color:#94a3b8}
+.cpi-filter[aria-pressed="true"]{background:#245d8c;color:#fff;border-color:#245d8c}
+.cpi-class{border-left:4px solid #94a3b8;padding-left:10px}
+.cpi-class[data-estado="PROXIMA"]{border-left-color:#245d8c}
+.cpi-class[data-estado="EN_PROCESO"]{border-left-color:#e99029}
+.cpi-class[data-estado="CERRADA"]{border-left-color:#94a3b8}

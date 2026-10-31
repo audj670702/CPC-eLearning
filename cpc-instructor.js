@@ -9,10 +9,47 @@ S.rerender=()=>render();
 function ensureModal(){
   if($('cpiModal'))return;
   const modal=document.createElement('div');modal.id='cpiModal';modal.hidden=true;modal.className='cpi-overlay';
-  modal.innerHTML=`<section class="cpi-panel" role="dialog" aria-modal="true" aria-labelledby="cpiTitle"><header class="cpi-top"><strong id="cpiTitle">Asistencias y Evidencias</strong><button type="button" data-cpi-close aria-label="Cerrar"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></header><div class="cpi-body"><div id="cpiReference"></div><div id="cpiNotice" role="status" aria-live="polite"></div><div id="cpiContent"></div><small class="cpi-version">Instructor v1.1.0</small></div></section>`;
+  modal.innerHTML=`<section class="cpi-panel" role="dialog" aria-modal="true" aria-labelledby="cpiTitle"><header class="cpi-top"><strong id="cpiTitle">Asistencias y Evidencias</strong><button type="button" data-cpi-close aria-label="Cerrar"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></header><div class="cpi-body"><div id="cpiReference"></div><div id="cpiNotice" role="status" aria-live="polite"></div><div id="cpiContent"></div><small class="cpi-version">Instructor v1.1.1</small></div></section>`;
   document.body.append(modal);
   modal.querySelector('[data-cpi-close]').onclick=()=>{if(S.busy)return;S.token++;modal.hidden=true;};
-  modal.addEventListener('click',e=>{const c=e.target.closest('[data-cpi-class]');if(c)openInstructorClass(c.dataset.cpiClass);});
+  modal.addEventListener('click',e=>{
+    const c=e.target.closest('[data-cpi-class]');if(c){openInstructorClass(c.dataset.cpiClass);return;}
+    const f=e.target.closest('[data-cpi-filter]');if(f){listFilter=listFilter===f.dataset.cpiFilter?'':f.dataset.cpiFilter;renderFilters();updateList();return;}
+    if(e.target.closest('[data-cpi-clear]')){listQuery='';const s=$('cpiSearch');if(s){s.value='';s.focus();}updateList();}
+  });
+  modal.addEventListener('input',e=>{if(e.target.id==='cpiSearch'){listQuery=e.target.value;updateList();}});
+}
+
+let listClasses=[],listFilter='',listQuery='';
+const STATE_LABEL={PROXIMA:'Próximas',EN_PROCESO:'En proceso',CERRADA:'Cerradas'};
+
+function classState(c){
+  const now=Date.now(),start=new Date(c.startAt).getTime(),end=new Date(c.endAt).getTime();
+  if(now<start)return 'PROXIMA';
+  if(now>end)return 'CERRADA';
+  return 'EN_PROCESO';
+}
+
+function normalizeText(text){return String(text||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();}
+
+function renderFilters(){
+  const box=$('cpiFilters');if(!box)return;
+  box.innerHTML=Object.keys(STATE_LABEL).map(k=>`<button type="button" class="cpi-filter" data-estado="${k}" data-cpi-filter="${k}" aria-pressed="${listFilter===k}">${STATE_LABEL[k]}</button>`).join('');
+  const clear=$('cpiClear');if(clear)clear.hidden=!listQuery;
+}
+
+function updateList(){
+  const list=$('cpiList');if(!list)return;
+  const q=normalizeText(listQuery).trim();
+  const items=listClasses.filter(c=>{
+    if(listFilter && classState(c)!==listFilter)return false;
+    if(!q)return true;
+    return normalizeText(`${c.courseCode} ${c.number} ${c.courseName}`).includes(q);
+  });
+  const clear=$('cpiClear');if(clear)clear.hidden=!listQuery;
+  if(!listClasses.length){list.innerHTML='No tienes clases asignadas.';return;}
+  if(!items.length){list.innerHTML='Ninguna clase coincide con la búsqueda o el filtro.';return;}
+  list.innerHTML=items.map(c=>{const st=classState(c);return `<button class="cpi-class" data-estado="${st}" data-cpi-class="${escapeHtml(c.id)}"><strong>${escapeHtml(c.courseCode)} · Clase ${escapeHtml(c.number)}</strong><span>${escapeHtml(c.courseName)}</span><small>${escapeHtml(dateFormat(c.startAt))} — ${escapeHtml(dateFormat(c.endAt))}</small><small>Asistencia: ${escapeHtml(c.attendanceState)} · Evidencias: ${escapeHtml(c.evidenceState)}</small></button>`;}).join('');
 }
 
 export async function initInstructor(member,callApi){
@@ -40,7 +77,9 @@ export async function openInstructorList(){
   const t=++S.token;
   try{
     const result=await instructorContext();if(t!==S.token)return;
-    $('cpiContent').innerHTML=result.classes.length?result.classes.map(c=>`<button class="cpi-class" data-cpi-class="${escapeHtml(c.id)}"><strong>${escapeHtml(c.courseCode)} · Clase ${escapeHtml(c.number)}</strong><span>${escapeHtml(c.courseName)}</span><small>${escapeHtml(dateFormat(c.startAt))} — ${escapeHtml(dateFormat(c.endAt))}</small><small>Asistencia: ${escapeHtml(c.attendanceState)} · Evidencias: ${escapeHtml(c.evidenceState)}</small></button>`).join(''):'No tienes clases asignadas.';
+    listClasses=result.classes||[];listFilter='';listQuery='';
+    $('cpiContent').innerHTML=`<div class="cpi-list-controls"><div class="cpi-search"><input id="cpiSearch" type="search" placeholder="Buscar clase por código, número o curso" autocomplete="off"><button type="button" id="cpiClear" data-cpi-clear aria-label="Limpiar búsqueda" hidden>×</button></div><nav class="cpi-filters" id="cpiFilters" aria-label="Filtrar clases"></nav></div><div id="cpiList"></div>`;
+    renderFilters();updateList();
     notify('');
   }catch(e){notify(e.message);}
 }
@@ -74,4 +113,4 @@ setInterval(()=>{
 },1000);
 window.addEventListener('online',()=>{if(S.data && !$('cpiModal')?.hidden)notify(canRegister()?'Conexión recuperada. Reintenta la acción pendiente.':'El horario de registro terminó.');});
 window.addEventListener('offline',()=>{if(S.data && !$('cpiModal')?.hidden)notify('Sin conexión. Las marcas y la precarga quedan en este dispositivo; el envío requiere conexión antes del término de la clase.');});
-console.info('CPC Instructor | v1.1.0 | App v0.5.36');
+console.info('CPC Instructor | v1.1.1 | App v0.5.36');
