@@ -68,7 +68,7 @@ async function ccaLoad(classId) {
     const evidence = await ccaAll(wixData.query('CPC_Evidencias').eq('classId',ctx.clase._id).eq('status','UPLOADED'));
     return {classId:ctx.clase._id, courseId:ctx.courseId,
         courseName:ctx.course.nombreCurso || '',courseCode:ctx.course.codigoCurso || '',
-        folderUrl:ctx.course.carpetaEvidenciasDrive || '',
+        folderUrl:ctx.course.carpetaEvidenciasDriveId?`https://drive.google.com/drive/folders/${ctx.course.carpetaEvidenciasDriveId}`:'',
         rows:await ccaRoster(ctx,attendance),revision:attendance?.revision || '',
         evidence:evidence.map(e => ({operationId:e._id,name:e.fileName,url:e.fileUrl,uploadedAt:e.uploadedAt})),
         maxBytes:CCA_MAX_BYTES};
@@ -101,9 +101,29 @@ const ccaDrive = {
     async getFile() { throw new Error('La conexión con Google Drive de la EO no está disponible.'); },
     async checkFolder() { throw new Error('La conexión con Google Drive de la EO no está disponible.'); }
 };
+// Formato normalizado: <curso>_C<clase>_<aaaammdd>_<consecutivo>.<ext>, p. ej. C-2605_C01_20261031_01.jpg
 function ccaEvidenceName(record) {
     const ext = (String(record.originalName).match(/\.[A-Za-z0-9]{1,10}$/) || [''])[0].toLowerCase();
-    return `${record.courseCode}_S${String(record.classNumber).padStart(2,'0')}__${String(record.classDate).slice(2)}${ext}`;
+    const number = String(record.classNumber).padStart(record.classNumber > 99 ? 3 : 2,'0');
+    return `${record.courseCode}_C${number}_${String(record.classDate).replace(/-/g,'')}_${String(record.sequence).padStart(2,'0')}${ext}`;
+}
+// Carpeta del curso: "<curso> EVIDENCIAS". La app solo escribe en la carpeta que vinculó el admin con el selector.
+function ccaEvidenceFolderName(courseCode) { return `${courseCode} EVIDENCIAS`; }
+// Vincula la carpeta que eligió el admin con el selector de Google (drive.file). Verifica permisos antes de guardar.
+async function ccaLinkFolder(input) {
+    const course = await wixData.get('CPC_Cursos', clean(input.courseId), CCA_OPTIONS);
+    if (!course) throw new Error('El curso ya no existe.');
+    const code = clean(course.codigoCurso).toUpperCase();
+    if (!/^C-\d{1,12}$/.test(code)) throw new Error('El código del curso debe tener formato C-1234 antes de vincular su carpeta.');
+    const folderId = clean(input.folderId);
+    if (!/^[A-Za-z0-9_-]{10,200}$/.test(folderId)) throw new Error('Selecciona una carpeta de Google Drive.');
+    const folder = await ccaDrive.checkFolder(folderId);
+    if (!folder || folder.id !== folderId || folder.mimeType !== 'application/vnd.google-apps.folder' || !folder.canAddChildren)
+        throw new Error('La app no puede escribir en esa carpeta. Elígela de nuevo con el selector.');
+    await wixData.update('CPC_Cursos', {...course, carpetaEvidenciasDriveId: folderId}, CCA_OPTIONS);
+    const expected = ccaEvidenceFolderName(code);
+    return {courseId: course._id, folderId, folderName: folder.name,
+        warning: folder.name === expected ? '' : `Se recomienda nombrar la carpeta "${expected}".`};
 }
 // Paso 1: reserva el registro del archivo y devuelve la URL de sesión para que el navegador suba directo.
 async function cpiPrepareEvidence(identity,input) {
@@ -119,13 +139,13 @@ async function cpiPrepareEvidence(identity,input) {
         if(record.uploadedBy!==identity.member._id || record.classId!==ctx.clase._id || record.sha256!==file.sha256 || record.size!==file.size)throw new Error('El identificador ya pertenece a otra carga.');
         if(record.status==='UPLOADED')return {operationId,uploadUrl:null,confirmed:true};
     }else{
-        const folderId=ccaFolderId(ctx.course.carpetaEvidenciasDrive);
-        if(!folderId)throw new Error('Configura la Carpeta de evidencias en este curso.');
+        const folderId=clean(ctx.course.carpetaEvidenciasDriveId);
+        if(!/^[A-Za-z0-9_-]{10,200}$/.test(folderId))throw new Error('Vincula la carpeta de evidencias del curso desde el panel ADM.');
         const courseCode=clean(ctx.course.codigoCurso).toUpperCase(),classNumber=Number(ctx.clase.numeroClase);
         if(!/^C-\d{1,12}$/.test(courseCode))throw new Error('El código del curso debe tener formato C-1234 para nombrar la evidencia.');
         if(!Number.isInteger(classNumber) || classNumber<1 || classNumber>9999)throw new Error('Guarda un número de clase entero positivo antes de cargar evidencias.');
         record={_id:operationId,title:file.originalName,classId:ctx.clase._id,courseId:ctx.courseId,folderId,courseCode,classNumber,
-            classDate:ccaDate(ctx.clase.fechaProgramada),originalName:file.originalName,mimeType:file.mimeType,size:file.size,sha256:file.sha256,
+            classDate:ccaDate(ctx.clase.fechaProgramada),sequence:file.sequence,originalName:file.originalName,mimeType:file.mimeType,size:file.size,sha256:file.sha256,
             status:'PENDING_DRIVE',uploadedBy:identity.member._id};
         await wixData.insert('CPC_Evidencias',record,CCA_OPTIONS);
     }
@@ -181,11 +201,12 @@ const classAcademicAdmin = webMethod(Permissions.SiteMember,async (action,input 
     switch (action) {
         case 'LOAD': return ccaLoad(input.classId);
         case 'ATTENDANCE_REPORT': return ccaAttendanceReport(input.courseId);
+        case 'LINK_FOLDER': return ccaLinkFolder(input);
         case 'ATTENDANCE_SAVE': return ccaSaveAttendance(input,member);
         case 'TEST': {
             const ctx = await ccaContext(input.classId);
-            const folderId = ccaFolderId(ctx.course.carpetaEvidenciasDrive);
-            if (!folderId) throw new Error('Configura la Carpeta de evidencias del curso.');
+            const folderId = clean(ctx.course.carpetaEvidenciasDriveId);
+            if (!folderId) throw new Error('Vincula la carpeta de evidencias del curso desde el panel ADM.');
             const folder = await ccaDrive.checkFolder(folderId);
             return {folderReadable:!!folder};
         }
@@ -276,6 +297,8 @@ async function cpiSaveAttendance(identity,input) {
     if(receipt.updatedBy!==identity.member._id)throw new Error('El registro de asistencia está cerrado.');
     await cpiProjectAttendance(ctx,receipt);return cpiLoad(identity,input);
 }
+// Compara un lote sin el consecutivo asignado por el servidor (el cliente no lo envía).
+const cpiBatchKey=rows=>JSON.stringify(rows.map(({sequence,...r})=>r));
 async function cpiBatch(identity,input) {
     const ctx=await cpiAssigned(identity,input.classId);cpiRequireOpen(ctx);
     if(await cpiReceipt('EVIDENCE_CLOSED',ctx.clase._id))throw new Error('La carga de evidencias está cerrada.');
@@ -284,12 +307,14 @@ async function cpiBatch(identity,input) {
     const normalized=files.map(f=>({operationId:clean(f.operationId),originalName:clean(f.originalName),mimeType:clean(f.mimeType)||'application/octet-stream',size:Number(f.size),sha256:clean(f.sha256)}));
     // Valida el lote completo antes de reservarlo; cpiPrepareEvidence usa el lote ya validado.
     for(const f of normalized)if(!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(f.operationId) || !Number.isInteger(f.size) || f.size<1 || f.size>CCA_MAX_BYTES || !/^[0-9a-f]{64}$/.test(f.sha256) || !f.originalName || f.originalName.length>240 || /[\x00-\x1f\/\\]/.test(f.originalName) || !/\.[A-Za-z0-9]{1,10}$/.test(f.originalName) || !/^[A-Za-z0-9!#$&^_.+-]+\/[A-Za-z0-9!#$&^_.+-]+$/.test(f.mimeType))throw new Error('Hay un archivo inválido en la precarga.');
-    if(!ccaFolderId(ctx.course.carpetaEvidenciasDrive) || !/^C-\d{1,12}$/.test(clean(ctx.course.codigoCurso).toUpperCase()) || !Number.isInteger(Number(ctx.clase.numeroClase)) || Number(ctx.clase.numeroClase)<1 || Number(ctx.clase.numeroClase)>9999)throw new Error('La clase requiere carpeta, código de curso y número válidos.');
+    if(!/^[A-Za-z0-9_-]{10,200}$/.test(clean(ctx.course.carpetaEvidenciasDriveId)) || !/^C-\d{1,12}$/.test(clean(ctx.course.codigoCurso).toUpperCase()) || !Number.isInteger(Number(ctx.clase.numeroClase)) || Number(ctx.clase.numeroClase)<1 || Number(ctx.clase.numeroClase)>9999)throw new Error('La clase requiere carpeta, código de curso y número válidos.');
     const existing=await cpiReceipt('EVIDENCE_BATCH',ctx.clase._id);
-    if(existing){if(existing.updatedBy!==identity.member._id || JSON.stringify(existing.rows)!==JSON.stringify(normalized))throw new Error('El lote de evidencias ya está definido. Reintenta los archivos pendientes.');return {files:existing.rows};}
+    if(existing){if(existing.updatedBy!==identity.member._id || cpiBatchKey(existing.rows)!==cpiBatchKey(normalized))throw new Error('El lote de evidencias ya está definido. Reintenta los archivos pendientes.');return {files:existing.rows};}
     for(const f of normalized)if(await ccaOptional('CPC_Evidencias',f.operationId))throw new Error('El identificador del archivo ya está utilizado.');
-    const receipt=await cpiInsertReceipt('EVIDENCE_BATCH',ctx,identity.member,normalized);
-    if(receipt.updatedBy!==identity.member._id || JSON.stringify(receipt.rows)!==JSON.stringify(normalized))throw new Error('El lote de evidencias ya está definido.');
+    const used=(await ccaAll(wixData.query('CPC_Evidencias').eq('classId',ctx.clase._id))).length;
+    const withSequence=normalized.map((f,i)=>({...f,sequence:used+i+1}));
+    const receipt=await cpiInsertReceipt('EVIDENCE_BATCH',ctx,identity.member,withSequence);
+    if(receipt.updatedBy!==identity.member._id || cpiBatchKey(receipt.rows)!==cpiBatchKey(normalized))throw new Error('El lote de evidencias ya está definido.');
     return {files:receipt.rows};
 }
 async function cpiEvidence(identity,action,input) {

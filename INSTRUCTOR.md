@@ -20,7 +20,7 @@ Guardar asistencia crea un recibo inmutable. Los cambios posteriores desde el pa
 El navegador sube el archivo directo a Drive; Wix no recibe el contenido. Pasos:
 
 1. `EVIDENCE_BATCH`: reserva el lote de archivos (fijo; los reintentos usan los mismos identificadores).
-2. `EVIDENCE_PREPARE` (por archivo): el backend crea la sesión de carga reanudable en la carpeta de evidencias del curso y devuelve `uploadUrl`.
+2. `EVIDENCE_PREPARE` (por archivo): el backend crea la sesión de carga reanudable en la carpeta vinculada del curso y devuelve `uploadUrl`.
 3. Subida directa con `PUT` a `uploadUrl`, con progreso por archivo. Si ya hay `driveFileId` local, no se vuelve a subir.
 4. `EVIDENCE_CONFIRM` (por archivo): el backend verifica en Drive que el archivo esté en la carpeta del curso y que el tamaño coincida, y registra la evidencia.
 5. `EVIDENCE_CLOSE`: cierra la carga cuando todos los archivos del lote están confirmados.
@@ -33,10 +33,13 @@ La precarga se conserva en IndexedDB y las marcas de asistencia en localStorage,
 
 ## Backend y estado de integración
 
-- `tests/academic-core.fixture.js` contiene la lógica del control académico (v0.14.0). Retiró el puente de Apps Script y los fragmentos en Wix (`CPC_EvidenciaPartes`).
+- `tests/academic-core.fixture.js` contiene la lógica del control académico (v0.14.0; incluye `LINK_FOLDER`). Retiró el puente de Apps Script y los fragmentos en Wix (`CPC_EvidenciaPartes`).
 - `ccaDrive` (en ese archivo) es la conexión con Drive de la EO. **Pendiente:** enlazarla al componente Drive normalizado de SYS (OAuth de la EO por el admin principal, alcance `drive.file`). Mientras no esté enlazada, las operaciones de evidencias fallan con un mensaje claro y la asistencia sigue funcionando.
-- **Pendiente:** con `drive.file`, la app solo ve archivos que creó o que el usuario eligió. Las carpetas de evidencia de cada curso deben crearse desde la app; las carpetas preexistentes no quedan accesibles sin eso.
-- **Pendiente:** el nombre del archivo en Drive (`C-1234_S01__26-10-04.jpg`) sigue el patrón del puente anterior; confirmar con el administrador antes de publicar.
+- **Carpeta por curso:** el admin crea "<curso> EVIDENCIAS" en su Drive y la vincula en el panel ADM con el selector de Google (`cpc-drive-picker.js`). `LINK_FOLDER` verifica que la app pueda escribir en ella antes de guardar `carpetaEvidenciasDriveId`. Con `drive.file` no se puede pegar un ID a mano: sin el selector la app no tiene permiso sobre la carpeta.
+- **Nombre del archivo:** `<curso>_C<clase>_<aaaammdd>_<consecutivo>.<ext>`, p. ej. `C-2605_C01_20261031_01.jpg`. El consecutivo se asigna al reservar el lote y se conserva en los reintentos.
+- **Pendiente para el selector:** credenciales del proyecto OAuth (identificador de cliente, clave de API y número de proyecto) y el token de acceso del navegador. El módulo no guarda ninguno de esos valores.
+- **Pendiente:** conectar `ccaDrive` al componente Drive de SYS (OAuth de la EO por el admin principal).
+- **Histórico:** los cursos con carpeta anterior (URL manual) no se migran por ahora.
 - `backend/cpcInstructorHttp.js` delega al mismo control académico. `backend/http-functions-instructor.integration.txt` muestra la conexión pendiente en el `http-functions.js` vigente de Wix; no lo reemplaza.
 - Los recibos usan CPC_Asistencias y sus campos existentes.
 

@@ -6,11 +6,11 @@ let admin=true;
 const context={console,Buffer,createHash:crypto.createHash,clean:v=>String(v??'').trim(),requireCpcAdmin:async()=>{if(!admin)throw Error('Acceso administrativo requerido.');return {_id:'admin'}},webMethod:(p,f)=>f,Permissions:{SiteMember:'member'},elevate:f=>f,wixData:{query,get:async(c,id)=>db[c].get(id),insert:async(c,item)=>{if(db[c].has(item._id))throw Error('duplicate');db[c].set(item._id,structuredClone(item));return item},update:async(c,item)=>{db[c].set(item._id,structuredClone(item));return item},remove:async(c,id)=>db[c].delete(id)}};
 vm.createContext(context);vm.runInContext(fs.readFileSync(require('path').join(__dirname,'academic-core.fixture.js'),'utf8').replace('export const classAcademicAdmin','const classAcademicAdmin'),context);
 // Drive simulado (componente normalizado de SYS): sesión de subida y lectura de archivo.
-vm.runInContext("ccaDrive.startResumableUpload=async p=>({uploadUrl:'https://upload.test/'+p.name});ccaDrive.getFile=async id=>({id,name:'image.jpg',size:'13',parents:[id==='driveFileOK001'?'evidenceFolder1':'otherFolder']});ccaDrive.checkFolder=async()=>({id:'evidenceFolder1'});",context);
+vm.runInContext("ccaDrive.startResumableUpload=async p=>({uploadUrl:'https://upload.test/'+p.name});ccaDrive.getFile=async id=>({id,name:'image.jpg',size:'13',parents:[id==='driveFileOK001'?'evidenceFolder1':'otherFolder']});ccaDrive.checkFolder=async id=>({id,name:id==='evidenceFolder1'?'C-1234 EVIDENCIAS':'Carpeta libre',mimeType:'application/vnd.google-apps.folder',canAddChildren:id!=='readonlyFolder001'});",context);
 let signedMember='teacherMember';context.currentMember={getMember:async()=>({_id:signedMember})};
 const call=(a,p)=>{context.testAction=a;context.testPayload=p;return vm.runInContext('classAcademicAdmin(testAction,testPayload)',context)};
-db.CPC_Cursos.set('course1',{_id:'course1',codigoCurso:'C-1234',nombreCurso:'Curso uno',carpetaDrive:'https://drive.google.com/drive/folders/WRONG_FOLDER1',carpetaEvidenciasDrive:'https://drive.google.com/drive/folders/evidenceFolder1'});
-db.CPC_Cursos.set('course2',{_id:'course2',codigoCurso:'C-5678',nombreCurso:'Curso dos',carpetaEvidenciasDrive:'https://drive.google.com/drive/folders/evidenceFolder2'});
+db.CPC_Cursos.set('course1',{_id:'course1',codigoCurso:'C-1234',nombreCurso:'Curso uno',carpetaDrive:'https://drive.google.com/drive/folders/WRONG_FOLDER1',carpetaEvidenciasDriveId:'evidenceFolder1'});
+db.CPC_Cursos.set('course2',{_id:'course2',codigoCurso:'C-5678',nombreCurso:'Curso dos',carpetaEvidenciasDriveId:'evidenceFolder2'});
 db.CPC_Clases.set('class1',{_id:'class1',curso:'course1',instructor1:'teacher',sesion:'S-011',numeroClase:1,fechaProgramada:'2026-10-04T01:00:00Z'});
 db.CPC_Clases.set('class2',{_id:'class2',curso:'course2',instructor1:'teacher',sesion:'S-011',numeroClase:10,fechaProgramada:'2026-10-04T01:00:00Z'});
 for(const id of ['student','teacher','other'])db.CPC_Usuario.set(id,{_id:id,nombreCompleto:id,codigoUsuario:'REG-'+id,cliente:'client1'});
@@ -46,7 +46,9 @@ const receipt=(kind,id)=>vm.runInContext(`cpiReceiptId('${kind}','${id}')`,conte
  await instructor('EVIDENCE_BATCH',{classId:'class1',files});await assert.rejects(()=>instructor('EVIDENCE_BATCH',{classId:'class1',files:[{...files[0],operationId:crypto.randomUUID()}]}));
  await assert.rejects(()=>instructor('EVIDENCE_PREPARE',{classId:'class1',operationId:crypto.randomUUID()}));
  await assert.rejects(()=>instructor('EVIDENCE_CLOSE',{classId:'class1'}));
- const prepared=await instructor('EVIDENCE_PREPARE',{classId:'class1',operationId:op});assert(prepared.uploadUrl.startsWith('https://upload.test/'));assert.equal(prepared.confirmed,false);
+ const prepared=await instructor('EVIDENCE_PREPARE',{classId:'class1',operationId:op});assert.equal(prepared.confirmed,false);
+ const classDay=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Mexico_City',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(db.CPC_Clases.get('class1').fechaProgramada)).replace(/-/g,'');
+ assert.equal(prepared.uploadUrl,'https://upload.test/C-1234_C01_'+classDay+'_01.jpg');
  await assert.rejects(()=>instructor('EVIDENCE_CONFIRM',{classId:'class1',operationId:op,driveFileId:'DRIVE_WRONG_FOLDER_1'}));
  await assert.rejects(()=>instructor('EVIDENCE_CLOSE',{classId:'class1'}));
  await instructor('EVIDENCE_CONFIRM',{classId:'class1',operationId:op,driveFileId:'driveFileOK001'});
@@ -66,5 +68,11 @@ const receipt=(kind,id)=>vm.runInContext(`cpiReceiptId('${kind}','${id}')`,conte
  // Anonymous and ambiguous memberships cannot supply a memberId to impersonate another user.
  signedMember='';await assert.rejects(()=>instructor('LIST',{memberId:'teacherMember'}));
  signedMember='teacherMember';db.CPC_Usuario.set('duplicate',{_id:'duplicate',memberId:'teacherMember',codigoUsuario:'INSTRUCTOR'});await assert.rejects(()=>instructor('LIST'));
- console.log('PASS instructor: identidad OAuth, asignación, exclusión, cierre inmutable, privacidad de panel, reporte correcto, lote fijo, Drive simulado, vencimiento e idempotencia.');
+ // Vinculación de carpeta por el admin (selector de Google): verifica permisos antes de guardar.
+ await assert.rejects(()=>call('LINK_FOLDER',{courseId:'course2',folderId:'readonlyFolder001'}));
+ assert.equal(db.CPC_Cursos.get('course2').carpetaEvidenciasDriveId,'evidenceFolder2');
+ const linked=await call('LINK_FOLDER',{courseId:'course2',folderId:'freshFolder00001'});
+ assert.equal(linked.folderId,'freshFolder00001');assert(linked.warning.includes('C-5678 EVIDENCIAS'));assert.equal(db.CPC_Cursos.get('course2').carpetaEvidenciasDriveId,'freshFolder00001');
+ admin=false;await assert.rejects(()=>call('LINK_FOLDER',{courseId:'course2',folderId:'freshFolder00001'}));admin=true;
+console.log('PASS instructor: identidad OAuth, asignación, exclusión, cierre inmutable, privacidad de panel, reporte correcto, lote fijo, Drive simulado, vencimiento e idempotencia.');
 })().catch(e=>{console.error(e);process.exitCode=1});
