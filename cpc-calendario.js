@@ -1,4 +1,4 @@
-import { instructorContext, openInstructorClass } from './cpc-instructor.js?v=1.1.3';
+import { instructorContext, openInstructorClass } from './cpc-instructor.js?v=1.1.4';
 const CPC_CAL = {
   tokenStorageKey: 'cpc_wix_member_tokens',
   queryUrl: 'https://www.wixapis.com/wix-data/v2/items/query',

@@ -29,7 +29,7 @@
     loading = true;
 
     try {
-      await import('./cpc-calendario.js?v=0.5.36');
+      await import('./cpc-calendario.js?v=0.5.37');
       loaded = true;
       loading = false;
       card.click();

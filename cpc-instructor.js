@@ -2,14 +2,14 @@
 // Asistencia y evidencias viven en módulos propios; comparten estado y API en cpc-instructor-core.js.
 import {S,$,escapeHtml,request,dateFormat,canRegister,storageRead,fileDraft,notify,setStatus} from './cpc-instructor-core.js?v=1.1.0';
 import {attendanceSection,bindAttendance} from './cpc-instructor-asistencia.js?v=1.1.0';
-import {evidenceSection,bindEvidence} from './cpc-instructor-evidencias.js?v=1.1.3';
+import {evidenceSection,bindEvidence} from './cpc-instructor-evidencias.js?v=1.1.4';
 
 S.rerender=()=>render();
 
 function ensureModal(){
   if($('cpiModal'))return;
   const modal=document.createElement('div');modal.id='cpiModal';modal.hidden=true;modal.className='cpi-overlay';
-  modal.innerHTML=`<section class="cpi-panel" role="dialog" aria-modal="true" aria-labelledby="cpiTitle"><header class="cpi-top"><strong id="cpiTitle">Asistencias y Evidencias</strong><button type="button" data-cpi-close aria-label="Cerrar"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></header><div class="cpi-body"><div id="cpiReference"></div><div id="cpiNotice" role="status" aria-live="polite"></div><div id="cpiContent"></div><small class="cpi-version">Instructor v1.1.3</small></div></section>`;
+  modal.innerHTML=`<section class="cpi-panel" role="dialog" aria-modal="true" aria-labelledby="cpiTitle"><header class="cpi-top"><strong id="cpiTitle">Asistencias y Evidencias</strong><button type="button" data-cpi-close aria-label="Cerrar"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></header><div class="cpi-body"><div id="cpiReference"></div><div id="cpiNotice" role="status" aria-live="polite"></div><div id="cpiContent"></div><small class="cpi-version">Instructor v1.1.4</small></div></section>`;
   document.body.append(modal);
   modal.querySelector('[data-cpi-close]').onclick=()=>{if(S.busy)return;S.token++;modal.hidden=true;};
   modal.addEventListener('click',e=>{
@@ -113,4 +113,4 @@ setInterval(()=>{
 },1000);
 window.addEventListener('online',()=>{if(S.data && !$('cpiModal')?.hidden)notify(canRegister()?'Conexión recuperada. Reintenta la acción pendiente.':'El horario de registro terminó.');});
 window.addEventListener('offline',()=>{if(S.data && !$('cpiModal')?.hidden)notify('Sin conexión. Las marcas y la precarga quedan en este dispositivo; el envío requiere conexión antes del término de la clase.');});
-console.info('CPC Instructor | v1.1.3 | App v0.5.36');
+console.info('CPC Instructor | v1.1.4 | App v0.5.36');
