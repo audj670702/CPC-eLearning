@@ -2,9 +2,11 @@ const fs=require('fs'),vm=require('vm'),assert=require('assert'),crypto=require(
 const db=Object.fromEntries(['CPC_Asistencias','CPC_Evidencias','CPC_EvidenciaPartes','CPC_Clases','CPC_Cursos','CPC_Usuario','CPC_Inscripciones','CPC_Clientes'].map(c=>[c,new Map()]));
 const ref=v=>typeof v==='object'?v?._id:v;
 function query(c){let filters=[],max=1000;const q={eq(k,v){filters.push([k,v]);return q},hasSome(k,v){filters.push([k,v]);return q},limit(n){max=n;return q},async find(){const items=[...db[c].values()].filter(x=>filters.every(([k,v])=>Array.isArray(v)?v.includes(ref(x[k])):ref(x[k])===v));function page(start){return {items:items.slice(start,start+max),hasNext:()=>start+max<items.length,next:async()=>page(start+max)}}return page(0)}};return q}
-let admin=true,remoteCalls=0;const uploads=new Map();
-const context={console,Buffer,createHash:crypto.createHash,clean:v=>String(v??'').trim(),requireCpcAdmin:async()=>{if(!admin)throw Error('Acceso administrativo requerido.');return {_id:'admin'}},webMethod:(p,f)=>f,Permissions:{SiteMember:'member'},elevate:f=>f,secrets:{getSecretValue:async n=>({value:n==='CPC_DRIVE_URL'?'https://script.google.com/macros/s/example/exec':'s'.repeat(64)})},fetch:async(url,p)=>{const r=JSON.parse(p.body);assert.equal(r.secret,'s'.repeat(64));if(r.action==='PING')return {ok:true,json:async()=>({ok:true,version:'1.0.0',folderReadable:true})};remoteCalls++;let file=uploads.get(r.operationId);if(!file){file={id:r.operationId,name:`${r.courseCode}_S${String(r.classNumber).padStart(2,'0')}__${r.classDate.slice(2)}.jpg`,url:'https://drive.google.com/file/d/'+r.operationId,folderId:r.folderId,sha256:crypto.createHash('sha256').update(Buffer.from(r.base64,'base64')).digest('hex')};uploads.set(r.operationId,file)}return {ok:true,json:async()=>({ok:true,file})}},wixData:{query,get:async(c,id)=>db[c].get(id),insert:async(c,item)=>{if(db[c].has(item._id))throw Error('duplicate');db[c].set(item._id,structuredClone(item));return item},update:async(c,item)=>{db[c].set(item._id,structuredClone(item));return item},remove:async(c,id)=>db[c].delete(id)}};
+let admin=true;
+const context={console,Buffer,createHash:crypto.createHash,clean:v=>String(v??'').trim(),requireCpcAdmin:async()=>{if(!admin)throw Error('Acceso administrativo requerido.');return {_id:'admin'}},webMethod:(p,f)=>f,Permissions:{SiteMember:'member'},elevate:f=>f,wixData:{query,get:async(c,id)=>db[c].get(id),insert:async(c,item)=>{if(db[c].has(item._id))throw Error('duplicate');db[c].set(item._id,structuredClone(item));return item},update:async(c,item)=>{db[c].set(item._id,structuredClone(item));return item},remove:async(c,id)=>db[c].delete(id)}};
 vm.createContext(context);vm.runInContext(fs.readFileSync(require('path').join(__dirname,'academic-core.fixture.js'),'utf8').replace('export const classAcademicAdmin','const classAcademicAdmin'),context);
+// Drive simulado (componente normalizado de SYS): sesión de subida y lectura de archivo.
+vm.runInContext("ccaDrive.startResumableUpload=async p=>({uploadUrl:'https://upload.test/'+p.name});ccaDrive.getFile=async id=>({id,name:'image.jpg',size:'13',parents:[id==='driveFileOK001'?'evidenceFolder1':'otherFolder']});ccaDrive.checkFolder=async()=>({id:'evidenceFolder1'});",context);
 let signedMember='teacherMember';context.currentMember={getMember:async()=>({_id:signedMember})};
 const call=(a,p)=>{context.testAction=a;context.testPayload=p;return vm.runInContext('classAcademicAdmin(testAction,testPayload)',context)};
 db.CPC_Cursos.set('course1',{_id:'course1',codigoCurso:'C-1234',nombreCurso:'Curso uno',carpetaDrive:'https://drive.google.com/drive/folders/WRONG_FOLDER1',carpetaEvidenciasDrive:'https://drive.google.com/drive/folders/evidenceFolder1'});
@@ -42,10 +44,15 @@ const receipt=(kind,id)=>vm.runInContext(`cpiReceiptId('${kind}','${id}')`,conte
  const bytes=Buffer.from('test evidence'),sha=crypto.createHash('sha256').update(bytes).digest('hex'),op=crypto.randomUUID();
  const files=[{operationId:op,originalName:'image.jpg',mimeType:'image/jpeg',size:bytes.length,sha256:sha}];
  await instructor('EVIDENCE_BATCH',{classId:'class1',files});await assert.rejects(()=>instructor('EVIDENCE_BATCH',{classId:'class1',files:[{...files[0],operationId:crypto.randomUUID()}]}));
- await assert.rejects(()=>instructor('EVIDENCE_BEGIN',{classId:'class1',operationId:crypto.randomUUID()}));
+ await assert.rejects(()=>instructor('EVIDENCE_PREPARE',{classId:'class1',operationId:crypto.randomUUID()}));
  await assert.rejects(()=>instructor('EVIDENCE_CLOSE',{classId:'class1'}));
- await instructor('EVIDENCE_BEGIN',{classId:'class1',operationId:op});await instructor('EVIDENCE_PART',{operationId:op,index:0,data:bytes.toString('base64')});await instructor('EVIDENCE_FINISH',{operationId:op});
- const complete=await instructor('EVIDENCE_CLOSE',{classId:'class1'});assert(complete.evidenceLocked);assert(complete.evidenceSent);assert.equal(complete.evidence.length,1);await assert.rejects(()=>instructor('EVIDENCE_BEGIN',{classId:'class1',operationId:op}));
+ const prepared=await instructor('EVIDENCE_PREPARE',{classId:'class1',operationId:op});assert(prepared.uploadUrl.startsWith('https://upload.test/'));assert.equal(prepared.confirmed,false);
+ await assert.rejects(()=>instructor('EVIDENCE_CONFIRM',{classId:'class1',operationId:op,driveFileId:'DRIVE_WRONG_FOLDER_1'}));
+ await assert.rejects(()=>instructor('EVIDENCE_CLOSE',{classId:'class1'}));
+ await instructor('EVIDENCE_CONFIRM',{classId:'class1',operationId:op,driveFileId:'driveFileOK001'});
+ await instructor('EVIDENCE_CONFIRM',{classId:'class1',operationId:op,driveFileId:'driveFileOK001'});
+ const again=await instructor('EVIDENCE_PREPARE',{classId:'class1',operationId:op});assert.equal(again.confirmed,true);
+ const complete=await instructor('EVIDENCE_CLOSE',{classId:'class1'});assert(complete.evidenceLocked);assert(complete.evidenceSent);assert.equal(complete.evidence.length,1);await assert.rejects(()=>instructor('EVIDENCE_PREPARE',{classId:'class1',operationId:op}));
  // Simultaneous submissions cannot replace the first immutable receipt.
  db.CPC_Clases.set('parallel',{_id:'parallel',curso:'course1',instructor1:'teacher',fechaProgramada:start,fechaFinProgramada:end,numeroClase:3});
  const parallel=await instructor('LOAD',{classId:'parallel'});

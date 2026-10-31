@@ -9,3 +9,26 @@
 .cpi-action{position:relative;display:flex;justify-content:flex-end;min-height:40px;margin:8px 0}.cpi-action .cpi-button{padding:6px 12px;min-height:32px;margin:0;font-size:12px;cursor:pointer}.cpi-lock{display:inline-flex;align-items:center;color:#64748b;padding:5px 8px}
 .cpi-confirm{position:absolute;right:0;bottom:calc(100% + 7px);width:min(270px,calc(100vw - 48px));background:#fff;color:#1e293b;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 5px 20px #0f172a26;padding:12px;z-index:2;font-size:13px}.cpi-confirm p{margin:0 0 10px}.cpi-confirm small{display:block;font-size:11px;color:#64748b;margin-top:4px}.cpi-confirm>div{display:flex;justify-content:flex-end;gap:8px}.cpi-confirm button{padding:6px 9px;font-size:12px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#245d8c;cursor:pointer}.cpi-confirm [data-confirm]{background:#245d8c;color:#fff;border-color:#245d8c}
 @media(max-width:420px){.cpi-section-bar{gap:6px;padding:8px}.cpi-section-bar h3{font-size:12px}.cpi-include{font-size:10px}}
+
+/* Instructor v1.1.0 · pestañas por flujo, estado anclado al botón y progreso por archivo */
+.cpi-section[hidden]{display:none}
+.cpi-tabs{display:flex;gap:6px;margin:10px 0 4px}
+.cpi-tab{flex:1;border:1px solid #245d8c;background:#fff;color:#245d8c;border-radius:7px;padding:9px;font-weight:500;cursor:pointer}
+.cpi-tab[aria-selected="true"]{background:#245d8c;color:#fff}
+.cpi-action{justify-content:space-between;align-items:center;gap:10px}
+.cpi-status{flex:1;font-size:12px;line-height:1.35;color:#475569;min-height:18px;align-self:center}
+.cpi-status[data-state="working"]{color:#245d8c}
+.cpi-status[data-state="working"]::before{content:"";display:inline-block;width:10px;height:10px;margin-right:6px;border:2px solid #245d8c;border-right-color:transparent;border-radius:50%;animation:cpi-spin .8s linear infinite;vertical-align:-1px}
+.cpi-status[data-state="ok"]{color:#15803d}
+.cpi-status[data-state="ok"]::before{content:"✓ ";font-weight:700}
+.cpi-status[data-state="error"]{color:#b91c1c}
+.cpi-status[data-state="error"]::before{content:"! ";font-weight:700}
+@keyframes cpi-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.cpi-status[data-state="working"]::before{animation:none}}
+.cpi-file-text{flex:1;min-width:0;display:block}
+.cpi-file-state{display:block;color:#64748b;font-size:11px;margin-top:2px}
+.cpi-preview[data-file-state="error"] .cpi-file-state{color:#b91c1c}
+.cpi-preview[data-file-state="confirmed"] .cpi-file-state{color:#15803d}
+.cpi-bar{display:block;height:4px;background:#e2e8f0;border-radius:3px;margin-top:4px;overflow:hidden}
+.cpi-bar>span{display:block;height:100%;background:#245d8c;width:0;transition:width .2s}
+.cpi-muted{color:#64748b;font-size:12px}
