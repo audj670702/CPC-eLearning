@@ -1,19 +1,25 @@
 const fs=require('fs'),vm=require('vm'),assert=require('assert'),crypto=require('crypto');
-const db=Object.fromEntries(['CPC_Asistencias','CPC_Evidencias','CPC_EvidenciaPartes','CPC_Clases','CPC_Cursos','CPC_Usuario','CPC_Inscripciones','CPC_Clientes'].map(c=>[c,new Map()]));
+const db=Object.fromEntries(['SCaD_EO','CPC_Asistencias','CPC_Evidencias','CPC_EvidenciaPartes','CPC_Clases','CPC_Cursos','CPC_Usuario','CPC_Inscripciones','CPC_Clientes'].map(c=>[c,new Map()]));
 const ref=v=>typeof v==='object'?v?._id:v;
 function query(c){let filters=[],max=1000;const q={eq(k,v){filters.push([k,v]);return q},hasSome(k,v){filters.push([k,v]);return q},limit(n){max=n;return q},async find(){const items=[...db[c].values()].filter(x=>filters.every(([k,v])=>Array.isArray(v)?v.includes(ref(x[k])):ref(x[k])===v));function page(start){return {items:items.slice(start,start+max),hasNext:()=>start+max<items.length,next:async()=>page(start+max)}}return page(0)}};return q}
-let admin=true,remoteCalls=0;const uploads=new Map();
-const context={console,Buffer,createHash:crypto.createHash,clean:v=>String(v??'').trim(),requireCpcAdmin:async()=>{if(!admin)throw Error('Acceso administrativo requerido.');return {_id:'admin'}},webMethod:(p,f)=>f,Permissions:{SiteMember:'member'},elevate:f=>f,secrets:{getSecretValue:async n=>({value:n==='CPC_DRIVE_URL'?'https://script.google.com/macros/s/example/exec':'s'.repeat(64)})},fetch:async(url,p)=>{const r=JSON.parse(p.body);assert.equal(r.secret,'s'.repeat(64));if(r.action==='PING')return {ok:true,json:async()=>({ok:true,version:'1.0.0',folderReadable:true})};remoteCalls++;let file=uploads.get(r.operationId);if(!file){file={id:r.operationId,name:`${r.courseCode}_S${String(r.classNumber).padStart(2,'0')}__${r.classDate.slice(2)}.jpg`,url:'https://drive.google.com/file/d/'+r.operationId,folderId:r.folderId,sha256:crypto.createHash('sha256').update(Buffer.from(r.base64,'base64')).digest('hex')};uploads.set(r.operationId,file)}return {ok:true,json:async()=>({ok:true,file})}},wixData:{query,get:async(c,id)=>db[c].get(id),insert:async(c,item)=>{if(db[c].has(item._id))throw Error('duplicate');db[c].set(item._id,structuredClone(item));return item},update:async(c,item)=>{db[c].set(item._id,structuredClone(item));return item},remove:async(c,id)=>db[c].delete(id)}};
+let admin=true;
+const context={console,Buffer,createHash:crypto.createHash,clean:v=>String(v??'').trim(),requireCpcAdmin:async()=>{if(!admin)throw Error('Acceso administrativo requerido.');return {_id:'admin'}},webMethod:(p,f)=>f,Permissions:{SiteMember:'member'},elevate:f=>f,wixData:{query,get:async(c,id)=>db[c].get(id),insert:async(c,item)=>{if(db[c].has(item._id))throw Error('duplicate');db[c].set(item._id,structuredClone(item));return item},update:async(c,item)=>{db[c].set(item._id,structuredClone(item));return item},remove:async(c,id)=>db[c].delete(id)}};
 vm.createContext(context);vm.runInContext(fs.readFileSync(require('path').join(__dirname,'academic-core.fixture.js'),'utf8').replace('export const classAcademicAdmin','const classAcademicAdmin'),context);
-let signedMember='teacherMember';context.currentMember={getMember:async()=>({_id:signedMember})};
+// Drive simulado (componente normalizado de SYS): sesión de subida y lectura de archivo.
+vm.runInContext("sysDriveCrearSesionCarga=async o=>({uploadUrl:'sys:'+o.eoId+':'+o.origen});sysDriveInfoArchivo=async()=>null;ccaDrive.startResumableUpload=async p=>({uploadUrl:'https://upload.test/'+p.name});ccaDrive.getFile=async id=>({id,name:'image.jpg',size:'13',parents:[id==='driveFileOK001'?'evidenceFolder1':'otherFolder']});ccaDrive.checkFolder=async id=>({id,name:id==='evidenceFolder1'?'C-1234 EVIDENCIAS':'Carpeta libre',mimeType:'application/vnd.google-apps.folder',canAddChildren:id!=='readonlyFolder001'});",context);
+let signedMember='teacherMember';
+// Helper de SYS simulado: solo el admin principal de la EO puede vincular carpetas.
+let principalId='admin';
+context.sysDriveResolverAdmin=async(app,codigoEO,mid,o)=>{if(app!=='CPC'||mid!==principalId||!o?.soloPrincipal)throw Error('Sólo el administrador principal puede realizar esta acción.');return {eo:{_id:'eo1'}};};context.currentMember={getMember:async()=>({_id:signedMember})};
 const call=(a,p)=>{context.testAction=a;context.testPayload=p;return vm.runInContext('classAcademicAdmin(testAction,testPayload)',context)};
-db.CPC_Cursos.set('course1',{_id:'course1',codigoCurso:'C-1234',nombreCurso:'Curso uno',carpetaDrive:'https://drive.google.com/drive/folders/WRONG_FOLDER1',carpetaEvidenciasDrive:'https://drive.google.com/drive/folders/evidenceFolder1'});
-db.CPC_Cursos.set('course2',{_id:'course2',codigoCurso:'C-5678',nombreCurso:'Curso dos',carpetaEvidenciasDrive:'https://drive.google.com/drive/folders/evidenceFolder2'});
+db.CPC_Cursos.set('course1',{_id:'course1',eoId:'eo1',codigoCurso:'C-1234',nombreCurso:'Curso uno',carpetaDrive:'https://drive.google.com/drive/folders/WRONG_FOLDER1',carpetaEvidenciasDriveId:'evidenceFolder1'});
+db.CPC_Cursos.set('course2',{_id:'course2',eoId:'eo1',codigoCurso:'C-5678',nombreCurso:'Curso dos',carpetaEvidenciasDriveId:'evidenceFolder2'});
 db.CPC_Clases.set('class1',{_id:'class1',curso:'course1',instructor1:'teacher',sesion:'S-011',numeroClase:1,fechaProgramada:'2026-10-04T01:00:00Z'});
 db.CPC_Clases.set('class2',{_id:'class2',curso:'course2',instructor1:'teacher',sesion:'S-011',numeroClase:10,fechaProgramada:'2026-10-04T01:00:00Z'});
 for(const id of ['student','teacher','other'])db.CPC_Usuario.set(id,{_id:id,nombreCompleto:id,codigoUsuario:'REG-'+id,cliente:'client1'});
 db.CPC_Inscripciones.set('e1',{_id:'e1',curso:'course1',usuario:'student'});db.CPC_Inscripciones.set('e2',{_id:'e2',curso:'course1',usuario:{_id:'student'}});db.CPC_Inscripciones.set('e3',{_id:'e3',curso:'course2',usuario:'other'});
 db.CPC_Clientes.set('client1',{_id:'client1',cliente:'Empresa de prueba'});
+db.SCaD_EO.set('eo1',{_id:'eo1',app:'CPC',codigoEO:'EO001'});
 
 const instructor=(a,p={})=>{context.testAction=a;context.testPayload=p;return vm.runInContext('instructorAcademic(testAction,testPayload)',context)};
 const receipt=(kind,id)=>vm.runInContext(`cpiReceiptId('${kind}','${id}')`,context);
@@ -42,10 +48,17 @@ const receipt=(kind,id)=>vm.runInContext(`cpiReceiptId('${kind}','${id}')`,conte
  const bytes=Buffer.from('test evidence'),sha=crypto.createHash('sha256').update(bytes).digest('hex'),op=crypto.randomUUID();
  const files=[{operationId:op,originalName:'image.jpg',mimeType:'image/jpeg',size:bytes.length,sha256:sha}];
  await instructor('EVIDENCE_BATCH',{classId:'class1',files});await assert.rejects(()=>instructor('EVIDENCE_BATCH',{classId:'class1',files:[{...files[0],operationId:crypto.randomUUID()}]}));
- await assert.rejects(()=>instructor('EVIDENCE_BEGIN',{classId:'class1',operationId:crypto.randomUUID()}));
+ await assert.rejects(()=>instructor('EVIDENCE_PREPARE',{classId:'class1',operationId:crypto.randomUUID()}));
  await assert.rejects(()=>instructor('EVIDENCE_CLOSE',{classId:'class1'}));
- await instructor('EVIDENCE_BEGIN',{classId:'class1',operationId:op});await instructor('EVIDENCE_PART',{operationId:op,index:0,data:bytes.toString('base64')});await instructor('EVIDENCE_FINISH',{operationId:op});
- const complete=await instructor('EVIDENCE_CLOSE',{classId:'class1'});assert(complete.evidenceLocked);assert(complete.evidenceSent);assert.equal(complete.evidence.length,1);await assert.rejects(()=>instructor('EVIDENCE_BEGIN',{classId:'class1',operationId:op}));
+ const prepared=await instructor('EVIDENCE_PREPARE',{classId:'class1',operationId:op});assert.equal(prepared.confirmed,false);
+ const classDay=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Mexico_City',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(db.CPC_Clases.get('class1').fechaProgramada)).replace(/-/g,'');
+ assert.equal(prepared.uploadUrl,'https://upload.test/C-1234_C01_'+classDay+'_01.jpg');
+ await assert.rejects(()=>instructor('EVIDENCE_CONFIRM',{classId:'class1',operationId:op,driveFileId:'DRIVE_WRONG_FOLDER_1'}));
+ await assert.rejects(()=>instructor('EVIDENCE_CLOSE',{classId:'class1'}));
+ await instructor('EVIDENCE_CONFIRM',{classId:'class1',operationId:op,driveFileId:'driveFileOK001'});
+ await instructor('EVIDENCE_CONFIRM',{classId:'class1',operationId:op,driveFileId:'driveFileOK001'});
+ const again=await instructor('EVIDENCE_PREPARE',{classId:'class1',operationId:op});assert.equal(again.confirmed,true);
+ const complete=await instructor('EVIDENCE_CLOSE',{classId:'class1'});assert(complete.evidenceLocked);assert(complete.evidenceSent);assert.equal(complete.evidence.length,1);await assert.rejects(()=>instructor('EVIDENCE_PREPARE',{classId:'class1',operationId:op}));
  // Simultaneous submissions cannot replace the first immutable receipt.
  db.CPC_Clases.set('parallel',{_id:'parallel',curso:'course1',instructor1:'teacher',fechaProgramada:start,fechaFinProgramada:end,numeroClase:3});
  const parallel=await instructor('LOAD',{classId:'parallel'});
@@ -59,5 +72,12 @@ const receipt=(kind,id)=>vm.runInContext(`cpiReceiptId('${kind}','${id}')`,conte
  // Anonymous and ambiguous memberships cannot supply a memberId to impersonate another user.
  signedMember='';await assert.rejects(()=>instructor('LIST',{memberId:'teacherMember'}));
  signedMember='teacherMember';db.CPC_Usuario.set('duplicate',{_id:'duplicate',memberId:'teacherMember',codigoUsuario:'INSTRUCTOR'});await assert.rejects(()=>instructor('LIST'));
- console.log('PASS instructor: identidad OAuth, asignación, exclusión, cierre inmutable, privacidad de panel, reporte correcto, lote fijo, Drive simulado, vencimiento e idempotencia.');
+ // Vinculación de carpeta por el admin (selector de Google): verifica permisos antes de guardar.
+ await assert.rejects(()=>call('LINK_FOLDER',{courseId:'course2',folderId:'readonlyFolder001'}));
+ assert.equal(db.CPC_Cursos.get('course2').carpetaEvidenciasDriveId,'evidenceFolder2');
+ const linked=await call('LINK_FOLDER',{courseId:'course2',folderId:'freshFolder00001'});
+ assert.equal(linked.folderId,'freshFolder00001');assert(linked.warning.includes('C-5678 EVIDENCIAS'));assert.equal(db.CPC_Cursos.get('course2').carpetaEvidenciasDriveId,'freshFolder00001');
+ principalId='otroAdmin';await assert.rejects(()=>call('LINK_FOLDER',{courseId:'course2',folderId:'freshFolder00001'}));principalId='admin';
+ admin=false;await assert.rejects(()=>call('LINK_FOLDER',{courseId:'course2',folderId:'freshFolder00001'}));admin=true;
+console.log('PASS instructor: identidad OAuth, asignación, exclusión, cierre inmutable, privacidad de panel, reporte correcto, lote fijo, Drive simulado, vencimiento e idempotencia.');
 })().catch(e=>{console.error(e);process.exitCode=1});
