@@ -19,7 +19,7 @@ function queueHTML(){
       <span class="cpi-file-text"><strong>${escapeHtml(q.file.name)}</strong> · ${(q.file.size/1024).toFixed(0)} KiB
       <small class="cpi-file-state">${escapeHtml(st.label)}</small>
       <span class="cpi-bar"><span id="cpiBar${i}" style="width:${pct}%"></span></span></span>
-      <button type="button" data-remove="${i}" ${S.busy||S.data.batch.length||q.completed?'disabled':''} aria-label="Quitar archivo">×</button></div>`;
+      <button type="button" data-remove="${i}" ${S.busy||q.completed?'disabled':''} aria-label="Quitar archivo">×</button></div>`;
   }).join('');
 }
 
@@ -28,8 +28,8 @@ export function evidenceSection(){
   return `<section class="cpi-section" data-section="evidencias" ${S.tab==='evidencias'?'':'hidden'}>
     <div class="cpi-section-bar"><h3>Evidencias del grupo</h3></div>
     <div>${d.evidence.map(e=>`<p><a href="${escapeHtml(e.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(e.name)}</a></p>`).join('')||'<p class="cpi-muted">Aún no hay evidencias confirmadas.</p>'}</div>
-    <label class="cpi-file-label">Seleccionar archivos<input id="cpiFiles" type="file" multiple ${locked||reserved?'disabled':''}></label>
-    <label class="cpi-file-label">Tomar fotografía<input id="cpiCamera" type="file" accept="image/*" capture="environment" ${locked||reserved?'disabled':''}></label>
+    <label class="cpi-file-label">Seleccionar archivos<input id="cpiFiles" type="file" multiple ${locked?'disabled':''}></label>
+    <label class="cpi-file-label">Tomar fotografía<input id="cpiCamera" type="file" accept="image/*" capture="environment" ${locked?'disabled':''}></label>
     <div id="cpiQueue">${queueHTML()}</div>
     <div class="cpi-action">${statusHTML('evidence')}${d.evidenceSent?lockIcon('Evidencias enviadas'):d.evidenceLocked&&canRegister()?lockIcon('Evidencias cerradas'):`<button class="cpi-button" id="cpiSend" ${locked||!S.queue.length?'disabled':''}>${reserved?'Reintentar':'Enviar'}</button>`}</div>
   </section>`;
@@ -53,7 +53,7 @@ export function bindEvidence(){
 }
 
 async function addFiles(event){
-  if(!canRegister()||S.data.evidenceLocked||S.data.batch.length){setStatus('evidence','error','La carga ya no está disponible: el horario terminó o el lote ya fue reservado.');S.rerender();return;}
+  if(!canRegister()||S.data.evidenceLocked){setStatus('evidence','error','La carga ya no está disponible: el horario terminó o el lote ya fue reservado.');S.rerender();return;}
   const picked=[...event.target.files];event.target.value='';
   const limitMB=Math.round(S.data.maxBytes/1048576);
   if(S.queue.length+picked.length>MAX_FILES || picked.some(f=>!f.size||f.size>S.data.maxBytes)){
@@ -97,7 +97,8 @@ export async function sendEvidence(){
     for(const q of S.queue)if(!q.sha256)q.sha256=await sha256Hex(q.file);
     await persistQueue();
     const files=S.queue.map(q=>({operationId:q.operationId,originalName:q.file.name,mimeType:q.file.type||'application/octet-stream',size:q.file.size,sha256:q.sha256}));
-    if(!S.data.batch.length){await request('EVIDENCE_BATCH',{classId,files});S.data.batch=files;}
+    const batchIds=(S.data.batch||[]).map(f=>f.operationId).join('|'),queueIds=files.map(f=>f.operationId).join('|');
+    if(batchIds!==queueIds){await request('EVIDENCE_BATCH',{classId,files});S.data.batch=files;}
     const failed=[];
     for(let i=0;i<S.queue.length;i++){
       const q=S.queue[i];if(q.completed)continue;

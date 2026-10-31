@@ -39,13 +39,13 @@
 .cpi-search input::-webkit-search-cancel-button{display:none}
 .cpi-search [data-cpi-clear]{position:absolute;right:6px;width:30px;height:30px;border:0;background:#eef2f6;border-radius:6px;font-size:18px;line-height:1;color:#245d8c;cursor:pointer}
 .cpi-search [data-cpi-clear][hidden]{display:none}
-.cpi-filters{display:flex;gap:6px;flex-wrap:wrap}
-.cpi-filter{flex:1 1 0;min-width:96px;padding:8px 6px;border:1px solid #cbd5e1;border-left:4px solid #94a3b8;border-radius:7px;background:#fff;color:#1e293b;font-size:12px;font-weight:500;cursor:pointer}
+.cpi-filters{display:flex;gap:6px;flex-wrap:nowrap}
+.cpi-filter{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px;border:1px solid #cbd5e1;border-left:4px solid #94a3b8;border-radius:7px;background:#fff;color:#1e293b;font-size:12px;font-weight:500;line-height:1.2;cursor:pointer;white-space:nowrap}
 .cpi-filter[data-estado="PROXIMA"]{border-left-color:#245d8c}
 .cpi-filter[data-estado="EN_PROCESO"]{border-left-color:#e99029}
 .cpi-filter[data-estado="CERRADA"]{border-left-color:#94a3b8}
-.cpi-count{display:inline-block;margin-left:4px;padding:1px 6px;border-radius:9px;background:#eef2f6;color:#1e293b;font-weight:600}
-.cpi-filter[aria-pressed="true"] .cpi-count{background:rgba(255,255,255,.25);color:#fff}
+.cpi-count{display:block;font-size:11px;font-weight:600;color:#475569}
+.cpi-filter[aria-pressed="true"] .cpi-count{color:#fff}
 .cpi-filter[data-estado="TODAS"]{border-left-color:#245d8c}
 .cpi-filter[aria-pressed="true"]{background:#245d8c;color:#fff;border-color:#245d8c}
 .cpi-class{border-left:4px solid #94a3b8;padding-left:10px}
