@@ -44,6 +44,9 @@
 .cpi-filter[data-estado="PROXIMA"]{border-left-color:#245d8c}
 .cpi-filter[data-estado="EN_PROCESO"]{border-left-color:#e99029}
 .cpi-filter[data-estado="CERRADA"]{border-left-color:#94a3b8}
+.cpi-count{display:inline-block;margin-left:4px;padding:1px 6px;border-radius:9px;background:#eef2f6;color:#1e293b;font-weight:600}
+.cpi-filter[aria-pressed="true"] .cpi-count{background:rgba(255,255,255,.25);color:#fff}
+.cpi-filter[data-estado="TODAS"]{border-left-color:#245d8c}
 .cpi-filter[aria-pressed="true"]{background:#245d8c;color:#fff;border-color:#245d8c}
 .cpi-class{border-left:4px solid #94a3b8;padding-left:10px}
 .cpi-class[data-estado="PROXIMA"]{border-left-color:#245d8c}

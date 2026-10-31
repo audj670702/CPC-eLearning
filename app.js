@@ -1,4 +1,4 @@
-import { initInstructor } from './cpc-instructor.js?v=1.1.1';
+import { initInstructor } from './cpc-instructor.js?v=1.1.2';
 import { createClient, OAuthStrategy } from 'https://esm.sh/@wix/sdk';
 import { tvMarkup, initCpcTv } from './cpc-tv.js?v=0.5.35';
 
