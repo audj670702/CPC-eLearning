@@ -93,6 +93,7 @@ async function ccaSaveAttendance(input, member) {
     else await wixData.insert('CPC_Asistencias',item,CCA_OPTIONS);
     return {classId:ctx.clase._id,rows,revision};
 }
+// Helper de SYS: resuelve al administrador de la EO y valida que sea el admin principal para acciones de dueño.
 // Conexión con Google Drive de la EO: adaptador a backend/sysGoogleDrive (SYS), el mismo que usa GESTIÓN.
 // El archivo real importa sysDriveCrearSesionCarga y sysDriveInfoArchivo desde 'backend/sysGoogleDrive'.
 const CCA_ORIGEN = 'https://cpc.scad.mx';
@@ -121,9 +122,13 @@ function ccaEvidenceName(record) {
 // Carpeta del curso: "<curso> EVIDENCIAS". La app solo escribe en la carpeta que vinculó el admin con el selector.
 function ccaEvidenceFolderName(courseCode) { return `${courseCode} EVIDENCIAS`; }
 // Vincula la carpeta que eligió el admin con el selector de Google (drive.file). Verifica permisos antes de guardar.
-async function ccaLinkFolder(input) {
+async function ccaLinkFolder(input, member) {
     const course = await wixData.get('CPC_Cursos', clean(input.courseId), CCA_OPTIONS);
     if (!course) throw new Error('El curso ya no existe.');
+    // Solo el admin principal de la EO del curso vincula su carpeta (misma regla que la conexión de Drive).
+    const eo = await wixData.get('SCaD_EO', ccaEoId(course), CCA_OPTIONS);
+    if (!eo) throw new Error('La Empresa Operadora del curso no existe.');
+    await sysDriveResolverAdmin('CPC', eo.codigoEO, member._id, {soloPrincipal:true});
     const code = clean(course.codigoCurso).toUpperCase();
     if (!/^C-\d{1,12}$/.test(code)) throw new Error('El código del curso debe tener formato C-1234 antes de vincular su carpeta.');
     const folderId = clean(input.folderId);
@@ -212,7 +217,7 @@ const classAcademicAdmin = webMethod(Permissions.SiteMember,async (action,input 
     switch (action) {
         case 'LOAD': return ccaLoad(input.classId);
         case 'ATTENDANCE_REPORT': return ccaAttendanceReport(input.courseId);
-        case 'LINK_FOLDER': return ccaLinkFolder(input);
+        case 'LINK_FOLDER': return ccaLinkFolder(input, member);
         case 'ATTENDANCE_SAVE': return ccaSaveAttendance(input,member);
         case 'TEST': {
             const ctx = await ccaContext(input.classId);
