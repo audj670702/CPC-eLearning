@@ -38,7 +38,10 @@ La precarga se conserva en IndexedDB y las marcas de asistencia en localStorage,
 - **Carpeta por curso:** el admin crea "<curso> EVIDENCIAS" en su Drive y la vincula en el panel ADM con el selector de Google (`cpc-drive-picker.js`). `LINK_FOLDER` verifica que la app pueda escribir en ella antes de guardar `carpetaEvidenciasDriveId`. Con `drive.file` no se puede pegar un ID a mano: sin el selector la app no tiene permiso sobre la carpeta.
 - **Nombre del archivo:** `<curso>_C<clase>_<aaaammdd>_<consecutivo>.<ext>`, p. ej. `C-2605_C01_20261031_01.jpg`. El consecutivo se asigna al reservar el lote y se conserva en los reintentos.
 - **Pendiente para el selector:** credenciales del proyecto OAuth (identificador de cliente, clave de API y número de proyecto) y el token de acceso del navegador. El módulo no guarda ninguno de esos valores.
-- **Pendiente:** conectar `ccaDrive` al componente Drive de SYS (OAuth de la EO por el admin principal).
+- **Drive:** `ccaDrive` es un adaptador a `backend/sysGoogleDrive` (SYS), el mismo que usa GESTIÓN: `sysDriveCrearSesionCarga` (sesión de subida, origen `https://cpc.scad.mx`), `sysDriveInfoArchivo` (confirmación y verificación de la carpeta). El archivo real importa esas funciones desde ese módulo.
+- **Pendiente:** el ID de la Empresa Operadora (`eoId`) del curso. Hoy `ccaEoId` falla si el curso no lo tiene. Falta definir de dónde sale (campo en CPC_Cursos o EO fija de CPC).
+- **Pendiente:** que `sysGoogleDrive` acepte el origen `https://cpc.scad.mx` y que `sysDriveInfoArchivo` devuelva `canAddChildren` para carpetas (sin ese dato la vinculación se rechaza).
+- **Pendiente:** el selector debe usar la misma cuenta de Google que conectó el Drive de la EO. Si no, el permiso no aplica al token del backend.
 - **Histórico:** los cursos con carpeta anterior (URL manual) no se migran por ahora.
 - `backend/cpcInstructorHttp.js` delega al mismo control académico. `backend/http-functions-instructor.integration.txt` muestra la conexión pendiente en el `http-functions.js` vigente de Wix; no lo reemplaza.
 - Los recibos usan CPC_Asistencias y sus campos existentes.

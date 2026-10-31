@@ -93,15 +93,26 @@ async function ccaSaveAttendance(input, member) {
     else await wixData.insert('CPC_Asistencias',item,CCA_OPTIONS);
     return {classId:ctx.clase._id,rows,revision};
 }
-// Conexión con Google Drive de la EO (modelo normalizado, igual que GESTIÓN).
-// ccaDrive debe enlazarse al componente Drive de SYS (OAuth de la EO, drive.file).
-// Mientras no esté conectado, cada operación falla con un mensaje claro.
+// Conexión con Google Drive de la EO: adaptador a backend/sysGoogleDrive (SYS), el mismo que usa GESTIÓN.
+// El archivo real importa sysDriveCrearSesionCarga y sysDriveInfoArchivo desde 'backend/sysGoogleDrive'.
+const CCA_ORIGEN = 'https://cpc.scad.mx';
+function ccaEoId(course) {
+    const eoId = clean(course?.eoId);
+    if (!eoId) throw new Error('El curso no tiene Empresa Operadora asignada para usar Google Drive.');
+    return eoId;
+}
 const ccaDrive = {
-    async startResumableUpload() { throw new Error('La conexión con Google Drive de la EO no está disponible.'); },
-    async getFile() { throw new Error('La conexión con Google Drive de la EO no está disponible.'); },
-    async checkFolder() { throw new Error('La conexión con Google Drive de la EO no está disponible.'); }
+    async startResumableUpload(p) {
+        const s = await sysDriveCrearSesionCarga({eoId:p.eoId,carpetaId:p.folderId,nombreArchivo:p.name,mimeType:p.mimeType,tamano:p.size,origen:CCA_ORIGEN});
+        return {uploadUrl:s.uploadUrl};
+    },
+    async getFile(fileId,eoId) { return sysDriveInfoArchivo(eoId,fileId); },
+    // canAddChildren debe venir de sysDriveInfoArchivo (campo capabilities); si no viene, la vinculación se rechaza.
+    async checkFolder(folderId,eoId) {
+        const info = await sysDriveInfoArchivo(eoId,folderId);
+        return info ? {...info,canAddChildren:info.canAddChildren === true} : null;
+    }
 };
-// Formato normalizado: <curso>_C<clase>_<aaaammdd>_<consecutivo>.<ext>, p. ej. C-2605_C01_20261031_01.jpg
 function ccaEvidenceName(record) {
     const ext = (String(record.originalName).match(/\.[A-Za-z0-9]{1,10}$/) || [''])[0].toLowerCase();
     const number = String(record.classNumber).padStart(record.classNumber > 99 ? 3 : 2,'0');
@@ -117,7 +128,7 @@ async function ccaLinkFolder(input) {
     if (!/^C-\d{1,12}$/.test(code)) throw new Error('El código del curso debe tener formato C-1234 antes de vincular su carpeta.');
     const folderId = clean(input.folderId);
     if (!/^[A-Za-z0-9_-]{10,200}$/.test(folderId)) throw new Error('Selecciona una carpeta de Google Drive.');
-    const folder = await ccaDrive.checkFolder(folderId);
+    const folder = await ccaDrive.checkFolder(folderId, ccaEoId(course));
     if (!folder || folder.id !== folderId || folder.mimeType !== 'application/vnd.google-apps.folder' || !folder.canAddChildren)
         throw new Error('La app no puede escribir en esa carpeta. Elígela de nuevo con el selector.');
     await wixData.update('CPC_Cursos', {...course, carpetaEvidenciasDriveId: folderId}, CCA_OPTIONS);
@@ -149,7 +160,7 @@ async function cpiPrepareEvidence(identity,input) {
             status:'PENDING_DRIVE',uploadedBy:identity.member._id};
         await wixData.insert('CPC_Evidencias',record,CCA_OPTIONS);
     }
-    const session=await ccaDrive.startResumableUpload({folderId:record.folderId,name:ccaEvidenceName(record),mimeType:record.mimeType,size:record.size});
+    const session=await ccaDrive.startResumableUpload({eoId:ccaEoId(ctx.course),folderId:record.folderId,name:ccaEvidenceName(record),mimeType:record.mimeType,size:record.size});
     return {operationId,uploadUrl:session.uploadUrl,confirmed:false};
 }
 // Paso 2: el navegador informa el id de Drive; el servidor verifica carpeta y tamaño antes de registrar.
@@ -164,7 +175,7 @@ async function cpiConfirmEvidence(identity,input) {
         return cpiLoad(identity,input);
     }
     if(!/^[A-Za-z0-9_-]{10,200}$/.test(driveFileId))throw new Error('Identificador de archivo inválido.');
-    const file=await ccaDrive.getFile(driveFileId);
+    const file=await ccaDrive.getFile(driveFileId,ccaEoId(ctx.course));
     if(!file || !(file.parents||[]).includes(record.folderId) || Number(file.size)!==record.size)throw new Error('Drive no confirma el archivo subido. Reintenta la carga de este archivo.');
     await wixData.update('CPC_Evidencias',{...record,status:'UPLOADED',fileId:driveFileId,fileName:file.name || ccaEvidenceName(record),
         fileUrl:file.webViewLink || `https://drive.google.com/file/d/${driveFileId}/view`,uploadedAt:new Date()},CCA_OPTIONS);
@@ -207,7 +218,7 @@ const classAcademicAdmin = webMethod(Permissions.SiteMember,async (action,input 
             const ctx = await ccaContext(input.classId);
             const folderId = clean(ctx.course.carpetaEvidenciasDriveId);
             if (!folderId) throw new Error('Vincula la carpeta de evidencias del curso desde el panel ADM.');
-            const folder = await ccaDrive.checkFolder(folderId);
+            const folder = await ccaDrive.checkFolder(folderId,ccaEoId(ctx.course));
             return {folderReadable:!!folder};
         }
         default: throw new Error('Operación académica no reconocida.');
