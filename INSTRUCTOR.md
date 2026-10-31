@@ -39,9 +39,11 @@ La precarga se conserva en IndexedDB y las marcas de asistencia en localStorage,
 - **Nombre del archivo:** `<curso>_C<clase>_<aaaammdd>_<consecutivo>.<ext>`, p. ej. `C-2605_C01_20261031_01.jpg`. El consecutivo se asigna al reservar el lote y se conserva en los reintentos.
 - **Pendiente para el selector:** credenciales del proyecto OAuth (identificador de cliente, clave de API y número de proyecto) y el token de acceso del navegador. El módulo no guarda ninguno de esos valores.
 - **Drive:** `ccaDrive` es un adaptador a `backend/sysGoogleDrive` (SYS), el mismo que usa GESTIÓN: `sysDriveCrearSesionCarga` (sesión de subida, origen `https://cpc.scad.mx`), `sysDriveInfoArchivo` (confirmación y verificación de la carpeta). El archivo real importa esas funciones desde ese módulo.
-- **Pendiente:** el ID de la Empresa Operadora (`eoId`) del curso. Hoy `ccaEoId` falla si el curso no lo tiene. Falta definir de dónde sale (campo en CPC_Cursos o EO fija de CPC).
-- **Pendiente:** que `sysGoogleDrive` acepte el origen `https://cpc.scad.mx` y que `sysDriveInfoArchivo` devuelva `canAddChildren` para carpetas (sin ese dato la vinculación se rechaza).
-- **Pendiente:** el selector debe usar la misma cuenta de Google que conectó el Drive de la EO. Si no, el permiso no aplica al token del backend.
+- **Origen:** `origenSeguro` acepta cualquier subdominio de `scad.mx`, así que `https://cpc.scad.mx` ya está permitido. No requiere cambios.
+- **Redirect URI:** el regreso de Google es único para todas las apps (`https://www.scad.mx/_functions/sysGoogleCallback`) y el `state` identifica la app. CPC no necesita registrar otra URI.
+- **Pendiente (SYS):** `sysDriveInfoArchivo` pide solo `id,name,mimeType,size,parents,createdTime`; no devuelve `capabilities.canAddChildren`. Sin ese dato la vinculación de carpeta se rechaza. Se corrige agregando `capabilities` a los campos pedidos o con una función `sysDriveVerificarCarpeta` que devuelva `canAddChildren`.
+- **Pendiente:** el `eoId` del curso. `sysDriveResolverAdmin` identifica la EO por `app` y `codigoEO`, así que CPC debe conocer su `codigoEO` (o el del curso) y resolverlo a `SCaD_EO._id`.
+- **Pendiente (selector):** el token para el Picker en el navegador. SYS nunca entrega autorización al navegador. Propuesta: obtener un token de corta duración con Google Identity Services usando el identificador de cliente (público), no el secreto. El permiso del selector aplica al mismo cliente y cuenta; por eso el selector debe usar la cuenta que conectó Drive (`cuentaEmail` de `sysDriveEstado`).
 - **Histórico:** los cursos con carpeta anterior (URL manual) no se migran por ahora.
 - `backend/cpcInstructorHttp.js` delega al mismo control académico. `backend/http-functions-instructor.integration.txt` muestra la conexión pendiente en el `http-functions.js` vigente de Wix; no lo reemplaza.
 - Los recibos usan CPC_Asistencias y sus campos existentes.
