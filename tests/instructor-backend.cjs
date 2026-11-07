@@ -46,19 +46,30 @@ const receipt=(kind,id)=>vm.runInContext(`cpiReceiptId('${kind}','${id}')`,conte
  db.CPC_Asistencias.set('class2',{_id:'class2',classId:'class2',courseId:'course2',rows:[{key:'P:other',status:'AUSENTE',name:'ADMIN RECORD'}]});
  const adminHidden=await instructor('LOAD',{classId:'class2'});assert(!JSON.stringify(adminHidden).includes('ADMIN RECORD'));
  const bytes=Buffer.from('test evidence'),sha=crypto.createHash('sha256').update(bytes).digest('hex'),op=crypto.randomUUID();
- const files=[{operationId:op,originalName:'image.jpg',mimeType:'image/jpeg',size:bytes.length,sha256:sha}];
- await instructor('EVIDENCE_BATCH',{classId:'class1',files});await assert.rejects(()=>instructor('EVIDENCE_BATCH',{classId:'class1',files:[{...files[0],operationId:crypto.randomUUID()}]}));
- await assert.rejects(()=>instructor('EVIDENCE_PREPARE',{classId:'class1',operationId:crypto.randomUUID()}));
- await assert.rejects(()=>instructor('EVIDENCE_CLOSE',{classId:'class1'}));
- const prepared=await instructor('EVIDENCE_PREPARE',{classId:'class1',operationId:op});assert.equal(prepared.confirmed,false);
+ const photo={originalName:'image.jpg',mimeType:'image/jpeg',size:bytes.length,sha256:sha};
+ const prep=(classId,operationId,file=photo)=>instructor('EVIDENCE_PREPARE',{classId,operationId,file});
+ const confirm=(operationId,driveFileId='driveFileOK001')=>instructor('EVIDENCE_CONFIRM',{classId:'class1',operationId,driveFileId});
+ // Reproduce the screenshot: a previous batch with different file IDs, plus a historical close.
+ for(const kind of ['EVIDENCE_BATCH','EVIDENCE_CLOSED']){
+   const id=receipt(kind,'class1');db.CPC_Asistencias.set(id,{_id:id,updatedBy:'otherMember',rows:[{...photo,operationId:crypto.randomUUID()}]});
+ }
+ const available=await instructor('LOAD',{classId:'class1'});assert(available.evidencePerFile);assert(!available.evidenceLocked);
+ assert.equal((await instructor('LIST')).classes.find(c=>c.id==='class1').evidenceState,'DISPONIBLE');
+ await assert.rejects(()=>prep('class1',crypto.randomUUID(),{...photo,size:0}));
+ const prepared=await prep('class1',op);assert.equal(prepared.confirmed,false);
  const classDay=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Mexico_City',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(db.CPC_Clases.get('class1').fechaProgramada)).replace(/-/g,'');
  assert.equal(prepared.uploadUrl,'https://upload.test/C-1234_C01_'+classDay+'_01.jpg');
- await assert.rejects(()=>instructor('EVIDENCE_CONFIRM',{classId:'class1',operationId:op,driveFileId:'DRIVE_WRONG_FOLDER_1'}));
- await assert.rejects(()=>instructor('EVIDENCE_CLOSE',{classId:'class1'}));
- await instructor('EVIDENCE_CONFIRM',{classId:'class1',operationId:op,driveFileId:'driveFileOK001'});
- await instructor('EVIDENCE_CONFIRM',{classId:'class1',operationId:op,driveFileId:'driveFileOK001'});
- const again=await instructor('EVIDENCE_PREPARE',{classId:'class1',operationId:op});assert.equal(again.confirmed,true);
- const complete=await instructor('EVIDENCE_CLOSE',{classId:'class1'});assert(complete.evidenceLocked);assert(complete.evidenceSent);assert.equal(complete.evidence.length,1);await assert.rejects(()=>instructor('EVIDENCE_PREPARE',{classId:'class1',operationId:op}));
+ await assert.rejects(()=>confirm(op,'DRIVE_WRONG_FOLDER_1'));
+ await confirm(op);await confirm(op);
+ assert.equal((await prep('class1',op)).confirmed,true);
+ await assert.rejects(()=>prep('class1',op,{...photo,originalName:'distinta.jpg'}));
+ const own=await instructor('LOAD',{classId:'class1'});assert(!own.evidenceLocked);assert.equal(own.evidence.length,1);
+ const op2=crypto.randomUUID();const next=await prep('class1',op2);assert.equal(next.uploadUrl,'https://upload.test/C-1234_C01_'+classDay+'_02.jpg');
+ signedMember='otherMember';
+ await assert.rejects(()=>prep('class1',op));
+ assert.equal((await instructor('LOAD',{classId:'class1'})).evidence.length,0);
+ assert.equal((await prep('class1',crypto.randomUUID())).confirmed,false);
+ signedMember='teacherMember';
  // Simultaneous submissions cannot replace the first immutable receipt.
  db.CPC_Clases.set('parallel',{_id:'parallel',curso:'course1',instructor1:'teacher',fechaProgramada:start,fechaFinProgramada:end,numeroClase:3});
  const parallel=await instructor('LOAD',{classId:'parallel'});
@@ -66,8 +77,10 @@ const receipt=(kind,id)=>vm.runInContext(`cpiReceiptId('${kind}','${id}')`,conte
  assert.equal(results[0].rows.find(r=>r.role==='PARTICIPANTE').status,results[1].rows.find(r=>r.role==='PARTICIPANTE').status);
  assert.equal(db.CPC_Asistencias.get('parallel').rows.find(r=>r.role==='PARTICIPANTE').status,results[0].rows.find(r=>r.role==='PARTICIPANTE').status);
  // Expired/missing end dates are rejected on the server, regardless of UI state.
- db.CPC_Clases.get('class2').fechaFinProgramada=new Date(Date.now()-1).toISOString();await assert.rejects(()=>instructor('ATTENDANCE_SAVE',{classId:'class2',rows:[]}));await assert.rejects(()=>instructor('EVIDENCE_BATCH',{classId:'class2',files}));assert((await instructor('LOAD',{classId:'class2'})).attendanceLocked);
+ db.CPC_Clases.get('class2').fechaFinProgramada=new Date(Date.now()-1).toISOString();await assert.rejects(()=>instructor('ATTENDANCE_SAVE',{classId:'class2',rows:[]}));await assert.rejects(()=>prep('class2',crypto.randomUUID()));assert((await instructor('LOAD',{classId:'class2'})).attendanceLocked);
  db.CPC_Clases.get('class2').fechaFinProgramada='';assert((await instructor('LOAD',{classId:'class2'})).evidenceLocked);
+ db.CPC_Clases.get('class1').fechaFinProgramada=new Date(Date.now()-1).toISOString();await assert.rejects(()=>confirm(op2));
+ assert.equal((await instructor('LOAD',{classId:'class1'})).evidence.length,1);
  assert(!db.CPC_Asistencias.get(receipt('ATTENDANCE','class1')).courseId);
  // Anonymous and ambiguous memberships cannot supply a memberId to impersonate another user.
  signedMember='';await assert.rejects(()=>instructor('LIST',{memberId:'teacherMember'}));
@@ -79,5 +92,5 @@ const receipt=(kind,id)=>vm.runInContext(`cpiReceiptId('${kind}','${id}')`,conte
  assert.equal(linked.folderId,'freshFolder00001');assert(linked.warning.includes('C-5678 EVIDENCIAS'));assert.equal(db.CPC_Cursos.get('course2').carpetaEvidenciasDriveId,'freshFolder00001');
  principalId='otroAdmin';await assert.rejects(()=>call('LINK_FOLDER',{courseId:'course2',folderId:'freshFolder00001'}));principalId='admin';
  admin=false;await assert.rejects(()=>call('LINK_FOLDER',{courseId:'course2',folderId:'freshFolder00001'}));admin=true;
-console.log('PASS instructor: identidad OAuth, asignación, exclusión, cierre inmutable, privacidad de panel, reporte correcto, lote fijo, Drive simulado, vencimiento e idempotencia.');
+console.log('PASS instructor: identidad OAuth, asignación, exclusión, cierre inmutable, privacidad de panel, reporte correcto, envíos independientes y recibos históricos ignorados, Drive simulado, vencimiento e idempotencia.');
 })().catch(e=>{console.error(e);process.exitCode=1});
