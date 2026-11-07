@@ -1,8 +1,5 @@
-// CPC Instructor · sección de evidencias v1.1.0. Subida directa a Drive (modelo normalizado SYS/GESTIÓN):
-// EVIDENCE_BATCH reserva el lote → EVIDENCE_PREPARE da la sesión → el navegador sube a Drive → EVIDENCE_CONFIRM → EVIDENCE_CLOSE.
-import {S,$,escapeHtml,request,canRegister,setStatus,statusHTML,lockIcon,confirmAction,fileDraft,clockText} from './cpc-instructor-core.js?v=1.1.0';
-
-const MAX_FILES=20;
+// CPC Instructor · sección de evidencias v1.1.5. Subida y confirmación por archivo en Drive.
+import {S,$,escapeHtml,request,canRegister,setStatus,statusHTML,fileDraft,clockText} from './cpc-instructor-core.js?v=1.1.0';
 
 function fileState(q){
   if(q.completed)return {key:'confirmed',label:'Confirmado en el servidor'};
@@ -24,14 +21,14 @@ function queueHTML(){
 }
 
 export function evidenceSection(){
-  const d=S.data,locked=S.busy||d.evidenceLocked||!canRegister(),reserved=d.batch.length>0;
+  const d=S.data,available=d.evidencePerFile===true,locked=S.busy||!available||!canRegister();
   return `<section class="cpi-section" data-section="evidencias" ${S.tab==='evidencias'?'':'hidden'}>
     <div class="cpi-section-bar"><h3>Evidencias del grupo</h3></div>
     <div>${d.evidence.map(e=>`<p><a href="${escapeHtml(e.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(e.name)}</a></p>`).join('')||'<p class="cpi-muted">Aún no hay evidencias confirmadas.</p>'}</div>
     <label class="cpi-file-label">Seleccionar archivos<input id="cpiFiles" type="file" multiple ${locked?'disabled':''}></label>
     <label class="cpi-file-label">Tomar fotografía<input id="cpiCamera" type="file" accept="image/*" capture="environment" ${locked?'disabled':''}></label>
     <div id="cpiQueue">${queueHTML()}</div>
-    <div class="cpi-action">${statusHTML('evidence')}${d.evidenceSent?lockIcon('Evidencias enviadas'):d.evidenceLocked&&canRegister()?lockIcon('Evidencias cerradas'):`<button class="cpi-button" id="cpiSend" ${locked||!S.queue.length?'disabled':''}>${reserved?'Reintentar':'Enviar'}</button>`}</div>
+    <div class="cpi-action">${statusHTML('evidence')}${!available&&canRegister()?'<span class="cpi-muted">La carga de evidencias está temporalmente en actualización.</span>':''}<button class="cpi-button" id="cpiSend" ${locked||!S.queue.length?'disabled':''}>${S.queue.some(q=>q.error)?'Reintentar':'Enviar'}</button></div>
   </section>`;
 }
 
@@ -39,7 +36,7 @@ export function bindEvidence(){
   const files=$('cpiFiles'),camera=$('cpiCamera');
   if(files)files.onchange=addFiles;
   if(camera)camera.onchange=addFiles;
-  const send=$('cpiSend');if(send)send.onclick=e=>confirmAction(e.currentTarget,'evidence',sendEvidence);
+  const send=$('cpiSend');if(send)send.onclick=sendEvidence;
   document.querySelectorAll('[data-section="evidencias"] [data-remove]').forEach(b=>b.onclick=async()=>{
     S.queue.splice(Number(b.dataset.remove),1);
     try{await fileDraft(S.queue);}catch(e){setStatus('evidence','error',`No se pudo actualizar la precarga: ${e.message}`);}
@@ -53,15 +50,17 @@ export function bindEvidence(){
 }
 
 async function addFiles(event){
-  if(!canRegister()||S.data.evidenceLocked){setStatus('evidence','error','La carga ya no está disponible: el horario terminó o el lote ya fue reservado.');S.rerender();return;}
+  if(S.busy||!canRegister()||S.data.evidencePerFile!==true)return;
   const picked=[...event.target.files];event.target.value='';
+  if(!picked.length)return;
   const limitMB=Math.round(S.data.maxBytes/1048576);
-  if(S.queue.length+picked.length>MAX_FILES || picked.some(f=>!f.size||f.size>S.data.maxBytes)){
-    setStatus('evidence','error',`Máximo ${MAX_FILES} archivos de hasta ${limitMB} MB cada uno.`);S.rerender();return;
-  }
-  S.queue.push(...picked.map(file=>({file,operationId:crypto.randomUUID(),completed:false,sha256:'',driveFileId:'',progress:0,uploading:false,error:''})));
-  try{await fileDraft(S.queue);setStatus('evidence','idle',`${picked.length} archivo(s) listos. Pulsa Enviar para subirlos a Drive.`);}
-  catch(e){setStatus('evidence','error','La precarga no se pudo conservar en el dispositivo. Mantén abierta esta vista.');}
+  const accepted=picked.filter(f=>f.size>0&&f.size<=S.data.maxBytes);
+  S.queue.push(...accepted.map(file=>({file,operationId:crypto.randomUUID(),completed:false,sha256:'',driveFileId:'',progress:0,uploading:false,error:''})));
+  try{
+    if(accepted.length)await fileDraft(S.queue);
+    const skipped=picked.length-accepted.length;
+    setStatus('evidence',skipped?'error':'idle',skipped?`Se omitieron ${skipped} archivo(s) vacíos o mayores a ${limitMB} MB.`:'Pulsa Enviar para subir los archivos.');
+  }catch(e){setStatus('evidence','error','No se pudo guardar la selección en el dispositivo. Mantén abierta esta vista.');}
   S.rerender();
 }
 
@@ -87,53 +86,71 @@ export function uploadToDrive(uploadUrl,file,onProgress){
 }
 
 function setBar(i,pct){const el=$('cpiBar'+i);if(el)el.style.width=pct+'%';}
-async function persistQueue(){try{await fileDraft(S.queue);}catch(_){}}
-
 export async function sendEvidence(){
-  if(S.busy||S.data.evidenceLocked||!canRegister()||!S.queue.length)return;
-  const g=S.generation,classId=S.data.classId;
+  if(S.busy||!canRegister()||S.data.evidencePerFile!==true||!S.queue.length)return;
+  const g=S.generation,classId=S.data.classId,queue=S.queue;
+  const active=()=>g===S.generation&&S.data?.classId===classId;
+  const persist=async()=>{if(active())await fileDraft(queue).catch(()=>{});};
   S.busy=true;setStatus('evidence','working','Preparando envío…');S.rerender();
+  let confirmed=0;
   try{
-    for(const q of S.queue)if(!q.sha256)q.sha256=await sha256Hex(q.file);
-    await persistQueue();
-    const files=S.queue.map(q=>({operationId:q.operationId,originalName:q.file.name,mimeType:q.file.type||'application/octet-stream',size:q.file.size,sha256:q.sha256}));
-    const batchIds=(S.data.batch||[]).map(f=>f.operationId).join('|'),queueIds=files.map(f=>f.operationId).join('|');
-    if(batchIds!==queueIds){await request('EVIDENCE_BATCH',{classId,files});S.data.batch=files;}
-    const failed=[];
-    for(let i=0;i<S.queue.length;i++){
-      const q=S.queue[i];if(q.completed)continue;
+    for(let i=0;i<queue.length;i++){
+      if(!active())return;
+      if(!canRegister())break;
+      const q=queue[i];if(q.completed)continue;
       try{
+        q.error='';
         if(!q.driveFileId){
-          const prep=await request('EVIDENCE_PREPARE',{classId,operationId:q.operationId});
-          if(prep.confirmed){q.completed=true;}
+          if(!q.sha256)q.sha256=await sha256Hex(q.file);
+          if(!active())return;
+          const prep=await request('EVIDENCE_PREPARE',{classId,operationId:q.operationId,file:{
+            originalName:q.file.name,mimeType:q.file.type||'application/octet-stream',size:q.file.size,sha256:q.sha256
+          }});
+          if(!active())return;
+          if(prep.confirmed)q.completed=true;
           else{
-            setStatus('evidence','working',`Subiendo ${i+1} de ${S.queue.length} a Drive…`);
+            setStatus('evidence','working',`Subiendo ${i+1} de ${queue.length}…`);
             q.uploading=true;q.progress=0;S.rerender();
-            const meta=await uploadToDrive(prep.uploadUrl,q.file,pct=>{q.progress=pct;setBar(i,pct);});
-            q.uploading=false;q.driveFileId=meta.id;q.progress=100;q.error='';
-            await persistQueue();
+            const meta=await uploadToDrive(prep.uploadUrl,q.file,pct=>{q.progress=pct;if(active())setBar(i,pct);});
+            if(!active())return;
+            q.uploading=false;
+            if(!meta.id)throw new Error('Google Drive no devolvió el identificador del archivo.');
+            q.driveFileId=meta.id;q.progress=100;
+            await persist();
           }
         }
         if(!q.completed){
-          setStatus('evidence','working',`Confirmando ${i+1} de ${S.queue.length}…`);
-          await request('EVIDENCE_CONFIRM',{classId,operationId:q.operationId,driveFileId:q.driveFileId});
-          q.completed=true;q.error='';await persistQueue();
+          setStatus('evidence','working',`Confirmando ${i+1} de ${queue.length}…`);
+          const result=await request('EVIDENCE_CONFIRM',{classId,operationId:q.operationId,driveFileId:q.driveFileId});
+          if(!active())return;
+          S.data.evidence=result.evidence;
+          q.completed=true;
         }
+        confirmed++;
+        await persist();
       }catch(err){
-        q.uploading=false;q.error=err.message;failed.push(q.file.name);await persistQueue();
+        q.uploading=false;q.error=err.message;await persist();
       }
     }
-    if(g!==S.generation)return;
-    if(failed.length){
-      setStatus('evidence','error',`No se confirmaron ${failed.length} archivo(s): ${failed.join(', ')}. Los demás ya están en el servidor. Pulsa Reintentar.`);
-      return;
+    if(!active())return;
+    const remaining=queue.filter(q=>!q.completed);
+    const wasAlreadyConfirmed=queue.some(q=>q.completed&&!S.data.evidence.some(e=>e.operationId===q.operationId));
+    if(wasAlreadyConfirmed){
+      try{
+        const result=await request('LOAD',{classId});
+        if(active())S.data.evidence=result.evidence;
+      }catch(_){}
     }
-    S.data=await request('EVIDENCE_CLOSE',{classId});
-    S.queue=[];await fileDraft(null).catch(()=>{});
-    setStatus('evidence','ok',`Evidencias enviadas · ${clockText()}`);
-  }catch(e){
-    if(g===S.generation)setStatus('evidence','error',`No se envió la carga: ${e.message}`);
+    if(!active())return;
+    S.queue=remaining;await fileDraft(remaining.length?remaining:null).catch(()=>{});
+    if(!active())return;
+    if(remaining.length){
+      const summary=confirmed?`${confirmed} archivo(s) enviados. `:'';
+      setStatus('evidence','error',summary+(canRegister()?`Pendientes: ${remaining.map(q=>q.file.name).join(', ')}. Pulsa Reintentar.`:'El horario de la clase terminó.'));
+    }else{
+      setStatus('evidence','ok',`Evidencias enviadas · ${clockText()}`);
+    }
   }finally{
-    if(g===S.generation){S.busy=false;S.rerender();}
+    if(active()){S.busy=false;S.rerender();}
   }
 }
