@@ -11,6 +11,21 @@ export function youtubeId(value) {
   } catch { return ''; }
 }
 function valid(id) { return /^[\w-]{11}$/.test(id || '') ? id : ''; }
+// Programación de canales PLAYLIST_PANEL (tvdCanales.programacion): mismo ciclo que la parrilla.
+export function resolvePanelVideo(prog, now = Date.now()) {
+  const videos = (prog?.videos || []).filter(v => Number(v.duracion) > 0 && youtubeId(v.id));
+  const total = videos.reduce((sum, v) => sum + Number(v.duracion), 0);
+  const anchor = Date.parse(prog?.cicloOrigen);
+  if (!total || !Number.isFinite(anchor) || !Number.isFinite(now)) return null;
+  const elapsed = Math.max(0, Math.floor((now - anchor) / 1000));
+  let cursor = elapsed % total;
+  for (const v of videos) {
+    const duration = Number(v.duracion);
+    if (cursor < duration) return { modo:'PANEL', youtubeId:youtubeId(v.id), titulo:v.titulo || '', segundoInicio:cursor, itemId:v.id, occurrence:elapsed - cursor };
+    cursor -= duration;
+  }
+  return null;
+}
 export function resolveSysTransmission(data, now = Date.now()) {
   if (data?.ok !== true || data.transmision?.activa !== true) return null;
   const items = (data.elementos || []).filter(v => v.activo !== false && Number(v.duracionSegundos) > 0)

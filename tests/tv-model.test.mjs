@@ -21,3 +21,11 @@ assert.equal(resolveSysTransmission({...schedule,elementos:[]},anchor),null);
 assert.equal(youtubeId('https://example.com/watch?v=J8iuaBiKIsk'),'');
 assert.equal(youtubeId('https://youtube.com/live/kDXoRrnq7pA'),'kDXoRrnq7pA');
 });
+import { resolvePanelVideo } from '../cpc-tv-model.js';
+test('PLAYLIST_PANEL programacion follows the shared cycle',()=>{
+const prog={cicloOrigen:'2026-10-13T06:00:00.000Z',videos:[{id:'J8iuaBiKIsk',titulo:'A',duracion:10},{id:'kDXoRrnq7pA',titulo:'B',duracion:20}]};
+assert.equal(resolvePanelVideo(prog,anchor+9000).segundoInicio,9);
+assert.equal(resolvePanelVideo(prog,anchor+10000).itemId,'kDXoRrnq7pA');
+assert.equal(resolvePanelVideo(prog,anchor+35000).segundoInicio,5);
+assert.equal(resolvePanelVideo({...prog,videos:[]},anchor),null);
+});

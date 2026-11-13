@@ -1,9 +1,9 @@
-import { resolveSysTransmission } from "./cpc-tv-model.js?v=0.5.36";
-// CPC · Monitor TV · v0.5.36 · modelo compartido (CPC, LOT…)
+import { resolveSysTransmission, resolvePanelVideo } from "./cpc-tv-model.js?v=0.5.37";
+// CPC · Monitor TV · v0.5.37 · modelo compartido (CPC, LOT…)
 // CH 00: canal de la EO (en CPC, TV Capacitación). Opcional: eoChannel:false lo omite.
 // CH 01–02: señales digitales. CH 03+: catálogo y programación de SYS.
 // Opciones (tvMarkup / initCpcTv): eoChannel (true), staticEffect (false: estática al cambiar de canal).
-// v0.5.36 · canales de YouTube: el reproductor siempre arranca silenciado (autoplay permitido),
+// v0.5.37 · canales de YouTube: el reproductor siempre arranca silenciado (autoplay permitido),
 // el sonido se activa después, y el cambio de programa reutiliza el mismo reproductor.
 
 const TVDI_HLS = "https://tvdigital.scad.mx/cfcx/canal/index.m3u8";
@@ -174,12 +174,12 @@ function resumeDigital(){
   if(!v.error&&(v.currentSrc||v.getAttribute('src')||hls)){attemptDigitalPlay(v);return}
   playUrl(currentChannel().senal);
 }
-// v0.5.36 · El reproductor de YouTube SIEMPRE se crea silenciado: es la única forma de
+// v0.5.37 · El reproductor de YouTube SIEMPRE se crea silenciado: es la única forma de
 // reproducción automática que todos los navegadores permiten sin un toque del usuario.
 // Si el usuario pidió sonido, se activa en cuanto el video está al aire; si el navegador lo
 // impide (iPhone/Safari), el video sigue en silencio en vez de detenerse y pedir Reproducir.
 let ytReady = false, ytState = null, ytPlayerMuted = true, ytUnmuteAt = 0, ytWatchTimer = null, ytWatchGeneration = 0;
-function youtubeEmbedUrl(tv){const id=String(tv?.youtubeId||"").trim();if(!id)return"";const start=Math.max(0,Math.floor(Number(tv?.segundoInicio)||0));const u=new URL(`https://www.youtube.com/embed/${encodeURIComponent(id)}`);u.searchParams.set("autoplay","1");u.searchParams.set("mute","1");u.searchParams.set("playsinline","1");u.searchParams.set("controls","1");u.searchParams.set("rel","0");u.searchParams.set("enablejsapi","1");u.searchParams.set("start",String(start));u.searchParams.set("origin",location.origin);return u.toString()}
+function youtubeEmbedUrl(tv){const id=String(tv?.youtubeId||"").trim(),list=String(tv?.playlistId||"").trim();if(!id&&!list)return"";const start=Math.max(0,Math.floor(Number(tv?.segundoInicio)||0));const u=new URL(id?`https://www.youtube.com/embed/${encodeURIComponent(id)}`:"https://www.youtube.com/embed/videoseries");if(!id)u.searchParams.set("list",list);u.searchParams.set("autoplay","1");u.searchParams.set("mute","1");u.searchParams.set("playsinline","1");u.searchParams.set("controls","1");u.searchParams.set("rel","0");u.searchParams.set("enablejsapi","1");u.searchParams.set("start",String(start));u.searchParams.set("origin",location.origin);return u.toString()}
 function sendYoutubeCommand(func,args=[]){const f=$("#tvCommunityFrame");if(f?.contentWindow)f.contentWindow.postMessage(JSON.stringify({event:"command",func,args}),"https://www.youtube.com")}
 function paintMute(){const i=$("#tvMuteIcon"),t=$("#tvMuteText");if(i)i.innerHTML=tvMuted?'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>':'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>';if(t)t.textContent=tvMuted?"Activar sonido":"Silenciar";$("#btnTvMute")?.setAttribute("aria-label",tvMuted?"Activar sonido":"Silenciar")}
 function youtubeUnmute(){ytUnmuteAt=Date.now();sendYoutubeCommand("unMute")}
@@ -188,10 +188,10 @@ function youtubeKeepPlayingMuted(){ytUnmuteAt=0;tvMuted=true;paintMute();sendYou
 // Si el video no arranca solo, primero se reintenta en silencio; sólo después se ofrece Reproducir.
 function watchYoutubeStart(){clearTimeout(ytWatchTimer);const generation=++ytWatchGeneration;ytWatchTimer=setTimeout(()=>{if(generation!==ytWatchGeneration||ytState===1||document.visibilityState!=='visible')return;sendYoutubeCommand("mute");sendYoutubeCommand("playVideo");ytWatchTimer=setTimeout(()=>{if(generation===ytWatchGeneration&&ytState!==1&&document.visibilityState==='visible')showPlayFallback()},6000)},6000)}
 function stopYoutubeWatch(){clearTimeout(ytWatchTimer);ytWatchGeneration++}
-function renderCpcTransmission(force=false){const tv=context?.tv,id=String(tv?.youtubeId||"").trim(),center=$("#tvScreenCenter");if(!id){stopYoutubeWatch();setStreamState('idle',selected==='cpc'&&!loadContext?'Inicia sesión para este canal':'Sin programación');communityVideoKey="";destroyHls();setPlaceholder(true);if(center)center.innerHTML='<span class="tv-play">▶</span>';return}const key=`${tv?.modo||""}:${tv?.itemId||""}:${tv?.occurrence??""}:${id}`;if(!force&&communityVideoKey===key)return;communityVideoKey=key;$("#tvResume").hidden=true;
+function renderCpcTransmission(force=false){const tv=context?.tv,id=String(tv?.youtubeId||"").trim(),list=String(tv?.playlistId||"").trim(),center=$("#tvScreenCenter");if(!id&&!list){stopYoutubeWatch();setStreamState('idle',selected==='cpc'&&!loadContext?'Inicia sesión para este canal':'Sin programación');communityVideoKey="";destroyHls();setPlaceholder(true);if(center)center.innerHTML='<span class="tv-play">▶</span>';return}const key=`${tv?.modo||""}:${tv?.itemId||""}:${tv?.occurrence??""}:${id||list}`;if(!force&&communityVideoKey===key)return;communityVideoKey=key;$("#tvResume").hidden=true;
 // Cambio de programa en el mismo canal: se carga en el reproductor que ya está al aire
 // (sin recrear el iframe), así conserva el permiso de reproducción y el sonido.
-const current=$("#tvCommunityFrame");if(current&&ytReady){ytState=null;setStreamState('loading','Cargando señal…');sendYoutubeCommand("loadVideoById",[{videoId:id,startSeconds:Math.max(0,Math.floor(Number(tv?.segundoInicio)||0))}]);watchYoutubeStart();return}
+const current=$("#tvCommunityFrame");if(current&&ytReady&&id){ytState=null;setStreamState('loading','Cargando señal…');sendYoutubeCommand("loadVideoById",[{videoId:id,startSeconds:Math.max(0,Math.floor(Number(tv?.segundoInicio)||0))}]);watchYoutubeStart();return}
 destroyHls();setStreamState('loading','Cargando señal…');const v=$("#tvVideo"),p=$("#tvPlaceholder");if(v)v.hidden=true;if(p)p.hidden=false;if(center){ytReady=false;ytState=null;center.hidden=false;ytPlayerMuted=true;ytUnmuteAt=0;center.innerHTML=`<iframe id="tvCommunityFrame" class="tv-youtube-frame" src="${esc(youtubeEmbedUrl(tv))}" title="${esc(tv.titulo||CPC_CHANNEL_NAME)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe>`;watchYoutubeStart();
 const frame=$("#tvCommunityFrame");frame?.addEventListener('load',()=>{frame.contentWindow?.postMessage(JSON.stringify({event:'listening',id:'cpc-monitor'}),'https://www.youtube.com');for(const event of ['onStateChange','onAutoplayBlocked','onError'])frame.contentWindow?.postMessage(JSON.stringify({event:'command',func:'addEventListener',args:[event]}),'https://www.youtube.com')});}}
 function playCpc(){renderCpcTransmission(true)}
@@ -263,6 +263,9 @@ async function refreshCatalog(){
 async function refreshSys(){
   if(selected==='cpc'||sysLoading)return;
   const version=selectionVersion,code=selected;
+  // origen decide la fuente: YOUTUBE = lista de YouTube; PLAYLIST_PANEL = programación del panel.
+  const c=currentChannel();
+  if(c?.origen==='YOUTUBE'||c?.origen==='PLAYLIST_PANEL'){sysTransmission=null;setTitle('');showSysTv(catalogTransmission(c,Date.now()+clockOffset));return}
   sysLoading=true;
   try{
     const data=await readPublic(`tvdTransmision?canal=${encodeURIComponent(code)}`);
@@ -275,8 +278,18 @@ async function refreshSys(){
 }
 function renderSysTransmission(){
   if(!tvActive||!sysTransmission||selected==='cpc')return;
-  const tv=resolveSysTransmission(sysTransmission,Date.now()+clockOffset);
   if(currentChannel()?.tipo==='VPS'){setTitle(sysTransmission.transmision?.videoAlAire||'');return}
+  showSysTv(resolveSysTransmission(sysTransmission,Date.now()+clockOffset));
+}
+// Canales sin parrilla activa: PLAYLIST_PANEL usa su programación; YOUTUBE reproduce su lista.
+function catalogTransmission(c,now){
+  if(!c||!tvActive)return null;
+  if(c.origen==='PLAYLIST_PANEL')return resolvePanelVideo(c.programacion,now);
+  const list=String(c.playlistYoutube||'').trim();
+  return c.origen==='YOUTUBE'&&list?{modo:'LISTA',playlistId:list,titulo:c.nombre||'',itemId:`lista:${list}`,occurrence:''}:null;
+}
+function showSysTv(tv){
+  if(!tvActive||selected==='cpc')return;
   setTitle(tv?.titulo||'');
   if(!tv){destroyHls();setPlaceholder(true);setStreamState('idle','Sin programación');return}
   const previous=context;
