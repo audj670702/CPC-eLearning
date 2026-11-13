@@ -1,6 +1,7 @@
 import { initInstructor } from './cpc-instructor.js?v=1.1.4';
 import { createClient, OAuthStrategy } from 'https://esm.sh/@wix/sdk';
 import { tvMarkup, initCpcTv } from './cpc-tv.js?v=0.5.35';
+import { initMiPersonal } from './cpc-mi-personal.js?v=0.1.0';
 
 const app = document.getElementById('app');
 if (!app) throw new Error('No se encontró #app');
@@ -239,9 +240,16 @@ async function loadCpcTvContext() {
   return data;
 }
 
+async function cpcSessionToken() {
+  await sysSessionReady.catch(() => null);
+  const fresh = await ensureFreshTokens().catch(() => tokens);
+  return fresh?.accessToken?.value || tokens?.accessToken?.value || '';
+}
+
 function initTv(member) {
   const memberId = String(member?.id || '').trim();
   initCpcTv({ staticEffect: true, loadContext: memberId ? () => loadCpcTvContext() : null });
+  if (memberId) initMiPersonal({ loadContext: () => loadCpcTvContext(), getToken: cpcSessionToken });
 }
 
 function bindUI() {
