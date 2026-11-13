@@ -27,6 +27,6 @@ Base técnica mínima para una PWA de CPC e-Learning. La integración con autent
 
 Opciones para otras apps (`tvMarkup(opciones)` e `initCpcTv(opciones)`): `eoChannel: false` omite CH 00 y arranca en CH 01; `staticEffect: true` agrega la estática del panel TV Digital al cambiar de canal. `setTvActive(false|true)` detiene y reanuda el monitor cuando la app oculta o muestra su vista. CPC usa `staticEffect: true` (estática al cambiar de canal, como el panel TV Digital).
 
-Canales de YouTube (v0.5.35): el reproductor siempre se crea silenciado, porque es la única reproducción automática que todos los navegadores permiten. El sonido se activa después, y si el navegador lo bloquea (iPhone), el video continúa en silencio. El cambio de programa reutiliza el mismo reproductor. El iframe declara `referrerpolicy` porque, sin referrer, YouTube responde con error 153.
+Canales de YouTube (v0.5.36): el reproductor siempre se crea silenciado, porque es la única reproducción automática que todos los navegadores permiten. El sonido se activa después, y si el navegador lo bloquea (iPhone), el video continúa en silencio. El cambio de programa reutiliza el mismo reproductor. El iframe declara `referrerpolicy` porque, sin referrer, YouTube responde con error 153.
 
 Pantalla completa como en NEXUS: API nativa (Android, escritorio, iPad); en iPhone, reproductor nativo para TV Digital y pantalla completa dentro de la app para TV Capacitación. El botón Atrás cierra el menú y la pantalla completa.

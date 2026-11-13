@@ -1,4 +1,4 @@
-// Monitor TV · canales de YouTube sin "Reproducir" (v0.5.35). DOM simulado con jsdom:
+// Monitor TV · canales de YouTube sin "Reproducir" (v0.5.36). DOM simulado con jsdom:
 // valida los mensajes al reproductor, no la política real de cada navegador.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

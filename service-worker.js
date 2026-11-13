@@ -2,9 +2,9 @@ const CACHE_NAME = 'cpc-elearning-v0.5.36-instructor';
 const APP_SHELL = [
   './',
   './index.html',
-  './cpc-tv.js?v=0.5.35',
-  './cpc-tv-model.js?v=0.5.35',
-  './cpc-tv.css?v=0.5.35',
+  './cpc-tv.js?v=0.5.36',
+  './cpc-tv-model.js?v=0.5.36',
+  './cpc-tv.css?v=0.5.36',
   './manifest.webmanifest',
   './assets/icon-192.png',
   './assets/icon-512.png',

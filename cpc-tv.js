@@ -1,9 +1,9 @@
-import { resolveSysTransmission } from "./cpc-tv-model.js?v=0.5.35";
-// CPC · Monitor TV · v0.5.35 · modelo compartido (CPC, LOT…)
+import { resolveSysTransmission } from "./cpc-tv-model.js?v=0.5.36";
+// CPC · Monitor TV · v0.5.36 · modelo compartido (CPC, LOT…)
 // CH 00: canal de la EO (en CPC, TV Capacitación). Opcional: eoChannel:false lo omite.
 // CH 01–02: señales digitales. CH 03+: catálogo y programación de SYS.
 // Opciones (tvMarkup / initCpcTv): eoChannel (true), staticEffect (false: estática al cambiar de canal).
-// v0.5.35 · canales de YouTube: el reproductor siempre arranca silenciado (autoplay permitido),
+// v0.5.36 · canales de YouTube: el reproductor siempre arranca silenciado (autoplay permitido),
 // el sonido se activa después, y el cambio de programa reutiliza el mismo reproductor.
 
 const TVDI_HLS = "https://tvdigital.scad.mx/cfcx/canal/index.m3u8";
@@ -174,7 +174,7 @@ function resumeDigital(){
   if(!v.error&&(v.currentSrc||v.getAttribute('src')||hls)){attemptDigitalPlay(v);return}
   playUrl(currentChannel().senal);
 }
-// v0.5.35 · El reproductor de YouTube SIEMPRE se crea silenciado: es la única forma de
+// v0.5.36 · El reproductor de YouTube SIEMPRE se crea silenciado: es la única forma de
 // reproducción automática que todos los navegadores permiten sin un toque del usuario.
 // Si el usuario pidió sonido, se activa en cuanto el video está al aire; si el navegador lo
 // impide (iPhone/Safari), el video sigue en silencio en vez de detenerse y pedir Reproducir.
