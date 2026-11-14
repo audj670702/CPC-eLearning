@@ -10,13 +10,10 @@ const SCAD_SITE_URL = 'https://www.scad.mx';
 const CPC_CONTEXT_URL = 'https://www.scad.mx/_functions/cpcPwaContext';
 const CPC_PROFILE_URL = 'https://www.scad.mx/_functions/cpcPwaProfile';
 
-// Perfil SYS (SCaD_USR · app CPC): nombre visible, teléfono y avatar.
-// null = aún no cargado; { ok:false } = sin usuario CPC activo.
-let sysProfile = null;
 let currentMemberData = null;
 function initialsOf(name) { const p = String(name || '').trim().split(/\s+/).filter(Boolean); return (((p[0] || '')[0] || '') + ((p[1] || '')[0] || '')).toUpperCase() || '·'; }
-function identityName(member) { return (sysProfile?.ok && sysProfile.nombreVisible) || member?.name || 'Usuario'; }
-function identityAvatarHtml(member, cls = 'identity-avatar') { const url = sysProfile?.ok ? sysProfile.avatar : ''; return url ? `<img class="${cls}" src="${url}" alt="">` : `<span class="${cls} identity-initials">${initialsOf(identityName(member))}</span>`; }
+function identityName(member) { return member?.name || 'Usuario'; }
+function identityAvatarHtml(member, cls = 'identity-avatar') { const url = member?.avatar || ''; return url ? `<img class="${cls}" src="${url}" alt="">` : `<span class="${cls} identity-initials">${initialsOf(identityName(member))}</span>`; }
 
 const URLS = {
   misCursos: 'challenges',
@@ -96,7 +93,7 @@ function normalizeMember(member) {
   const contact = member.contact || {}; const profile = member.profile || {};
   const firstName = contact.firstName || profile.firstName || ''; const lastName = contact.lastName || profile.lastName || '';
   const fullName = `${firstName} ${lastName}`.trim();
-  return { id: member.id, name: fullName || profile.nickname || member.loginEmail || 'Usuario', email: member.loginEmail || '', avatar: profile.photo?.url || profile.photo?.image?.url || profile.image?.url || '', slug: profile.slug || '' };
+  return { id: member.id || member._id, name: profile.nickname || fullName || member.loginEmail || 'Usuario', email: member.loginEmail || '', phone: contact.phones?.[0] || '', avatar: profile.photo?.url || profile.photo?.image?.url || profile.image?.url || '', slug: profile.slug || '' };
 }
 
 function constanciasHtml() {
@@ -123,7 +120,7 @@ function render(member) {
         <a class="module-card accent-orange" href="${URLS.gymEntrenamiento}"><span class="module-icon module-logo"><img src="${URLS.gymIcon}" alt="GYM Entrenamiento"></span><span class="module-copy"><strong>GYM ENTRENAMIENTO</strong><small>Acceso a entrenamiento</small></span><span class="arrow">›</span></a>
       </section>
     </main>
-    <footer class="app-footer"><div class="powered-by"><span>Powered by</span><img src="assets/logo_scad_hub.png" alt="SCaD HUB"></div><span class="version">v0.5.37 | 2026</span></footer>
+    <footer class="app-footer"><div class="powered-by"><span>Powered by</span><img src="assets/logo_scad_hub.png" alt="SCaD HUB"></div><span class="version">v0.5.40 | 2026</span></footer>
   </div>
   <div class="infospe-modal" id="infospeModal" hidden><div class="infospe-panel"><div class="infospe-panel-top"><div class="infospe-heading"><img src="assets/logo_infospe.png" alt="INFOSPE"><div><strong>INFOSPE - Seguridad Privada</strong><span>Curso Básico de Profesionalización</span></div></div><button class="infospe-close" type="button" aria-label="Cerrar">×</button></div><div class="infospe-content"><section class="infospe-info-block infospe-intro-layout"><div class="infospe-info-copy"><p>La normatividad en el Estado de Guanajuato establece la obligación a la empresas de seguridad privada que cumplan un programa de capacitación basado en la currícula que el INFOSPE establece.</p><p>Este requisito se cumple acreditando la aprobación del Curso Básico de Profesionalización en Materia de Seguridad Privada.</p><p>El curso es presencial con apoyo en plataformas digitales y sesiones virtuales.</p><p>El período de impartición del curso base se realiza en 15 semanas.</p><p>De acuerdo a los requerimientos de la empresa, se puede impartir el curso en períodos convenientes para el cliente.</p></div><div class="infospe-accreditation-inline"><strong>Acreditación</strong><a class="infospe-doc-thumb infospe-accreditation-thumb" href="${URLS.certificacionInfospe}" target="_blank" rel="noopener noreferrer" aria-label="Ver acreditación CPC INFOSPE"><span class="infospe-pdf-preview"><iframe src="${URLS.certificacionInfospe}#toolbar=0&navpanes=0&scrollbar=0&view=FitH" title="Vista previa de acreditación CPC INFOSPE" tabindex="-1"></iframe></span><span class="infospe-thumb-action">Ver documento</span></a></div></section><section class="infospe-commercial"><div class="infospe-commercial-row"><strong>Precio regular:</strong><p>$ 6,900.00 + IVA por persona.</p></div><div class="infospe-commercial-row infospe-commercial-long"><strong>Garantía de Inversión:</strong><div><p>La política de GARANTÍA DE INVERSIÓN consiste en que, si por cualquier motivo un participante inscrito no concluye el curso, se bonifica el pago realizado a favor de otro participante en el siguiente curso.</p><p>La validez de esta política de inversión está sujeta a que la inscripción del nuevo participante se realice en el curso inmediato y se inscriba de manera regular a otro participante. Aplica sólo en precio regular.</p><p>El pago se realiza al momento de la inscripción del guardia al curso.</p><p>En el caso de convenios de capacitación en grupos diferidos (inscripción de guardias en diferentes fechas), se realiza el pago del 20% a la firma del convenio y el 80% de cada guardia conforme se vayan inscribiendo. El primer grupo se paga al 100%.</p></div></div></section><section class="infospe-constancias"><h3>Constancias que emitimos</h3><p class="infospe-intro">Documentamos formalmente cada etapa del proceso de capacitación, brindando certeza a las empresas de seguridad privada y a su personal.</p><div class="infospe-cert-list">${constanciasHtml()}</div></section></div></div></div>`;
   if (member) app.insertAdjacentHTML('beforeend', profileModalMarkup());
@@ -137,7 +134,7 @@ function render(member) {
   });
 }
 
-// Editar perfil (modelo Nexus): nombre visible, teléfono y avatar en SCaD_USR.
+// Editar el perfil del miembro Wix en sesión.
 function profileModalMarkup() {
   return `<div class="profile-backdrop" id="profileModal" hidden><section class="profile-modal" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
     <button class="profile-close" type="button" aria-label="Cerrar">×</button>
@@ -190,15 +187,11 @@ function bindProfile() {
   const close = () => { modal.hidden = true; document.body.classList.remove('modal-open'); };
   const open = async () => {
     app.querySelector('.member-menu').hidden = true; app.querySelector('.member-trigger')?.setAttribute('aria-expanded', 'false');
-    await sysSessionReady.catch(() => null);
     pendingPhoto = null; fileInput.value = ''; showMsg('');
     document.getElementById('profileName').value = identityName(currentMemberData);
-    document.getElementById('profilePhone').value = (sysProfile?.ok && sysProfile.telefono) || '';
+    document.getElementById('profilePhone').value = currentMemberData?.phone || '';
     document.getElementById('profileEmail').textContent = currentMemberData?.email || '—';
-    paintProfileAvatar(sysProfile?.ok ? sysProfile.avatar : '');
-    const enabled = Boolean(sysProfile?.ok); saveBtn.disabled = !enabled;
-    document.getElementById('btnChooseProfilePhoto').disabled = !enabled; document.getElementById('btnTakeProfilePhoto').disabled = !enabled;
-    if (!enabled) showMsg(sysProfile?.mensaje || 'Tu usuario CPC aún no está activo. Consulta con la administración de CPC.');
+    paintProfileAvatar(currentMemberData?.avatar || '');
     modal.hidden = false; document.body.classList.add('modal-open');
   };
   openBtns.forEach((btn) => btn.addEventListener('click', open));
@@ -213,14 +206,19 @@ function bindProfile() {
   });
   saveBtn.addEventListener('click', async () => {
     const nombreVisible = document.getElementById('profileName').value.trim(); const telefono = document.getElementById('profilePhone').value.trim();
-    const payload = { nombreVisible, telefono }; if (pendingPhoto) payload.foto = { base64: pendingPhoto, mimeType: 'image/jpeg', fileName: 'avatar.jpg' };
+    const payload = {};
+    if (nombreVisible !== currentMemberData.name) payload.nombreVisible = nombreVisible;
+    if (telefono !== currentMemberData.phone) payload.telefono = telefono;
+    if (pendingPhoto) payload.foto = { base64: pendingPhoto, mimeType: 'image/jpeg', fileName: 'avatar.jpg' };
     try {
       saveBtn.disabled = true; saveBtn.textContent = 'Guardando…'; showMsg('');
       const fresh = await ensureFreshTokens().catch(() => tokens); const accessToken = fresh?.accessToken?.value || tokens?.accessToken?.value || '';
       const response = await fetch(CPC_PROFILE_URL, { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json', 'X-CPC-Session': accessToken }, body: JSON.stringify(payload) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data?.ok !== true) throw new Error(data?.mensaje || 'No fue posible guardar el perfil.');
-      sysProfile = { ok: true, nombreVisible: data.nombreVisible || nombreVisible, telefono: data.telefono ?? telefono, avatar: data.avatar || sysProfile?.avatar || '' };
+      const updatedMember = normalizeMember(await getCurrentMember());
+      if (!updatedMember) throw new Error('Inicia sesión nuevamente para ver tu perfil.');
+      currentMemberData = updatedMember;
       refreshIdentity(); close();
     } catch (error) { showMsg(error.message); } finally { saveBtn.disabled = false; saveBtn.textContent = 'Guardar'; }
   });
@@ -272,11 +270,7 @@ async function syncSysSession() {
   const accessToken = fresh?.accessToken?.value || tokens?.accessToken?.value || '';
   if (!accessToken) return;
   const response = await fetch(CPC_CONTEXT_URL + '?primeraEntrada=1&t=' + Date.now(), { cache: 'no-store', headers: { 'X-CPC-Session': accessToken } });
-  const data = await response.json().catch(() => null);
-  sysProfile = data?.ok
-    ? { ok: true, nombreVisible: data.usuario?.nombreVisibleSys || '', telefono: data.usuario?.telefono || '', avatar: data.usuario?.avatar || '' }
-    : { ok: false, mensaje: data?.mensaje || '' };
-  refreshIdentity();
+  if (!response.ok) throw new Error('Contexto CPC ' + response.status);
 }
 
 async function boot() { try { await finishOAuthCallbackIfNeeded(); const rawMember = await getCurrentMember(); if (rawMember) { sysSessionReady = syncSysSession().catch((error) => console.warn('CPC primera entrada:', error)); } render(normalizeMember(rawMember)); } catch (error) { console.error('CPC auth:', error); render(null); } }
