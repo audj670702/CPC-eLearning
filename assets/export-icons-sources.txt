@@ -1,0 +1,6 @@
+Excel: Microsoft Office file type icon
+https://static2.sharepointonline.com/files/fabric/assets/item-types/32/xlsx.svg
+
+PDF: Microsoft Fluent UI PDFIcon (MIT)
+https://github.com/microsoft/fluentui/blob/master/packages/react-icons-mdl2/src/components/PDFIcon.tsx
+https://github.com/microsoft/fluentui/blob/master/LICENSE

@@ -1,4 +1,4 @@
-// cpc-mi-personal.js · v0.3.0 · "Mi personal": consulta de solo lectura para el enlace de un cliente.
+// cpc-mi-personal.js · v0.3.1 · "Mi personal": consulta de solo lectura para el enlace de un cliente.
 // Aparece sólo si cpcPwaContext devuelve miPersonal = true.
 // Mismas tres vistas que el Panel CPC: Inscripciones, Asistencia y Evaluaciones,
 // con búsqueda, filtros, orden por columna y exportación a Excel y PDF.
@@ -30,8 +30,8 @@ let mpLibsPromise = null;
 const mpTables = {};
 function mpTable(){return mpTables[mpState.tab] ||= {selected:new Set(),columns:null,mode:'all',panel:false};}
 function mpColumns(){return MP_TABS[mpState.tab].cols.filter(([k])=>!mpTable().columns||mpTable().columns.has(k));}
-function mpCourse(c){return [c.nombre,c.codigo].filter(Boolean).join(' · ')||'—';}
-function mpIcon(kind){const paths={xlsx:'M14 2H6v20h14V8z M14 2v6h6 M8 12l6 7 M14 12l-6 7',pdf:'M14 2H6v20h14V8z M14 2v6h6 M8 16h8 M8 12h4',print:'M6 8V2h12v6 M6 17H3V8h18v9h-3 M6 14h12v8H6z',columns:'M3 3h18v18H3z M9 3v18 M15 3v18'};return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+paths[kind]+'"/></svg>';}
+function mpCourse(c){return [c.codigo,c.nombre].filter(Boolean).join(' · ')||'—';}
+function mpIcon(kind){if(kind==='xlsx'||kind==='pdf')return '<img src="assets/'+(kind==='xlsx'?'excel':'pdf')+'.svg" alt="" aria-hidden="true">';const paths={print:'M6 8V2h12v6 M6 17H3V8h18v9h-3 M6 14h12v8H6z',columns:'M3 3h18v18H3z M9 3v18 M15 3v18'};return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+paths[kind]+'"/></svg>';}
 
 function mpEscape(value) {
   return String(value ?? '')
@@ -93,7 +93,7 @@ function mpStyles() {
     .mp-table tr:nth-child(even) td{background:#fafcff}
     .mp-empty{padding:18px;color:#64748b;font-size:.9rem}
     .mp-icon{width:34px;height:34px;padding:7px;display:inline-grid;place-items:center;background:#fff;color:#24539a}
-    .mp-icon svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round;stroke-linecap:round}
+    .mp-icon img{width:23px;height:23px;object-fit:contain}.mp-icon svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round;stroke-linecap:round}
     .mp-table .mp-line{font-size:.68rem;color:#8993a1;width:32px;text-align:right}
     .mp-table .mp-check{width:30px;cursor:default}.mp-table input[type=checkbox]{accent-color:#24539a}
     .mp-table tr.mp-selected td{background:#edf4fc}.mp-columns{display:flex;flex-wrap:wrap;gap:8px 16px;padding:8px;border:1px solid #e2e8f0;border-radius:8px}.mp-columns[hidden]{display:none}.mp-columns label{font-size:.8rem;display:flex;align-items:center;gap:5px}
@@ -113,7 +113,7 @@ function miPersonalModal() {
   modal.className = 'profile-backdrop';
   modal.hidden = true;
   modal.innerHTML = '<section class="profile-modal mp-modal" role="dialog" aria-modal="true" aria-labelledby="miPersonalTitle">'
-    + '<header class="mp-head"><strong id="miPersonalTitle">Mi personal <small>v0.3.0</small></strong><button type="button" class="mi-personal-close" aria-label="Cerrar">×</button></header>'
+    + '<header class="mp-head"><strong id="miPersonalTitle">Mi personal <small>v0.3.1</small></strong><button type="button" class="mi-personal-close" aria-label="Cerrar">×</button></header>'
     + '<div class="mp-cliente" id="miPersonalCliente"></div>'
     + '<nav class="mp-tabs" id="miPersonalTabs"></nav>'
     + '<div class="mp-toolbar">'
@@ -157,7 +157,7 @@ function mpFilas(tab, data) {
         filas.push({ codigo: p.codigo, nombre: p.nombre, email: p.email, curso: '—', cursoCodigo: '—', reportes: '—', _curso: '' });
       }
       for (const i of lista) {
-        filas.push({ codigo: p.codigo, nombre: p.nombre, email: p.email, curso: cursoNombre.get(i.cursoId) || [i.curso,i.cursoCodigo].filter(Boolean).join(' · ') || '—', cursoCodigo: i.cursoCodigo || '—', reportes: i.considerarReportes ? 'Sí' : 'No', _curso: i.cursoId || '' });
+        filas.push({ codigo: p.codigo, nombre: p.nombre, email: p.email, curso: cursoNombre.get(i.cursoId) || [i.cursoCodigo,i.curso].filter(Boolean).join(' · ') || '—', cursoCodigo: i.cursoCodigo || '—', reportes: i.considerarReportes ? 'Sí' : 'No', _curso: i.cursoId || '' });
       }
     }
     return filas;

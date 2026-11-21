@@ -6,7 +6,7 @@ vm.runInContext(fs.readFileSync(require.resolve('../cpc-mi-personal.js'),'utf8')
 const run=code=>vm.runInContext(code,context);
 run(`miPersonalModal();mpState.data={cliente:'GRUPO KEVELL',cursos:[{id:'c1',nombre:'Curso básico',codigo:'C-2606'},{id:'c2',nombre:'Curso básico',codigo:'C-2607'}],personal:[{id:'u1',codigo:'001',nombre:'ANA',email:'ana@example.com'},{id:'u2',codigo:'002',nombre:'BETO',email:'beto@example.com'}],inscripciones:[{usuarioId:'u1',cursoId:'c1',curso:'Curso básico',cursoCodigo:'C-2606'},{usuarioId:'u2',cursoId:'c2',curso:'Curso básico',cursoCodigo:'C-2607'}],asistencias:[{usuarioId:'u1',cursoId:'c1',nombre:'ANA',status:'PRESENTE'}],evaluaciones:[{usuarioId:'u1',cursoId:'c1',nombre:'ANA',aprobado:true}]};mpRender();`);
 const doc=window.document;
-assert.match(doc.querySelector('#miPersonalCurso').textContent,/Curso básico · C-2606/);
+assert.match(doc.querySelector('#miPersonalCurso').textContent,/C-2606 · Curso básico/);
 assert.equal(doc.querySelectorAll('tbody tr').length,2);
 doc.querySelector('[data-row="1"]').click();
 run("mpState.sort={key:'nombre',dir:-1};mpRender();");
@@ -23,7 +23,8 @@ run("mpState.q='ANA';mpRender();");assert.equal(run('mpReport().rows.length'),0,
 run("mpState.q='';mpState.tab='asistencia';mpRender();");
 assert.equal(doc.querySelectorAll('tbody tr').length,1);assert.equal(run('mpTable().selected.size'),0,'tab selections isolated');assert.match(doc.querySelector('tbody').textContent,/C-2606/);
 run("mpState.tab='evaluaciones';mpRender();");assert.match(doc.querySelector('tbody').textContent,/C-2606/);
-for(const button of ['Xlsx','Pdf','Print','Columns'])assert.ok(doc.querySelector('#miPersonal'+button+' svg'));
+for(const button of ['Xlsx','Pdf'])assert.ok(doc.querySelector('#miPersonal'+button+' img[src$=".svg"]'));
+for(const button of ['Print','Columns'])assert.ok(doc.querySelector('#miPersonal'+button+' svg'));
 run("mpState.tab='inscripciones';mpTable().mode='all';mpTable().columns=new Set(['nombre']);mpRender();");doc.querySelector('[data-column="nombre"]').click();assert.equal(run('mpColumns().length'),1,'cannot hide final data column');
 console.log('Mi personal: course labels, row selection, sorting, view filtering, numbering, columns and shared report data OK');
 if(process.env.MP_EXPORT_LIBS){
