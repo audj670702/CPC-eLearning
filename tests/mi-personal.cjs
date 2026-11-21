@@ -1,0 +1,44 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const {JSDOM}=require('jsdom');
+const dom=new JSDOM('<body><section class="modules-section"></section></body>',{url:'https://cpc.scad.mx/'}),window=dom.window;
+const context=vm.createContext({window,document:window.document,console,URL,Blob,location:window.location,Image:window.Image,setTimeout,alert:message=>{throw Error(message);}});
+vm.runInContext(fs.readFileSync(require.resolve('../cpc-mi-personal.js'),'utf8').replace('export function initMiPersonal','function initMiPersonal'),context);
+const run=code=>vm.runInContext(code,context);
+run(`miPersonalModal();mpState.data={cliente:'GRUPO KEVELL',cursos:[{id:'c1',nombre:'Curso básico',codigo:'C-2606'},{id:'c2',nombre:'Curso básico',codigo:'C-2607'}],personal:[{id:'u1',codigo:'001',nombre:'ANA',email:'ana@example.com'},{id:'u2',codigo:'002',nombre:'BETO',email:'beto@example.com'}],inscripciones:[{usuarioId:'u1',cursoId:'c1',curso:'Curso básico',cursoCodigo:'C-2606'},{usuarioId:'u2',cursoId:'c2',curso:'Curso básico',cursoCodigo:'C-2607'}],asistencias:[{usuarioId:'u1',cursoId:'c1',nombre:'ANA',status:'PRESENTE'}],evaluaciones:[{usuarioId:'u1',cursoId:'c1',nombre:'ANA',aprobado:true}]};mpRender();`);
+const doc=window.document;
+assert.match(doc.querySelector('#miPersonalCurso').textContent,/Curso básico · C-2606/);
+assert.equal(doc.querySelectorAll('tbody tr').length,2);
+doc.querySelector('[data-row="1"]').click();
+run("mpState.sort={key:'nombre',dir:-1};mpRender();");
+assert.equal(doc.querySelector('tbody [data-row="1"]').checked,true,'selection survives sorting');
+doc.querySelector('#miPersonalMostrar').value='selected';doc.querySelector('#miPersonalMostrar').dispatchEvent(new window.Event('change'));
+assert.equal(doc.querySelectorAll('tbody tr').length,1);
+assert.equal(doc.querySelector('tbody .mp-line').textContent,'1');
+doc.querySelector('[data-column="email"]').click();
+assert.equal(doc.querySelectorAll('thead th').length,7);
+assert.equal(run('mpReport().rows.length'),1);
+assert.equal(run('mpReport().headers.includes("Email")'),false);
+assert.match(run('mpReport().rows[0].join(" ")'),/BETO/);
+run("mpState.q='ANA';mpRender();");assert.equal(run('mpReport().rows.length'),0,'selected and search intersect');
+run("mpState.q='';mpState.tab='asistencia';mpRender();");
+assert.equal(doc.querySelectorAll('tbody tr').length,1);assert.equal(run('mpTable().selected.size'),0,'tab selections isolated');assert.match(doc.querySelector('tbody').textContent,/C-2606/);
+run("mpState.tab='evaluaciones';mpRender();");assert.match(doc.querySelector('tbody').textContent,/C-2606/);
+for(const button of ['Xlsx','Pdf','Print','Columns'])assert.ok(doc.querySelector('#miPersonal'+button+' svg'));
+run("mpState.tab='inscripciones';mpTable().mode='all';mpTable().columns=new Set(['nombre']);mpRender();");doc.querySelector('[data-column="nombre"]').click();assert.equal(run('mpColumns().length'),1,'cannot hide final data column');
+console.log('Mi personal: course labels, row selection, sorting, view filtering, numbering, columns and shared report data OK');
+if(process.env.MP_EXPORT_LIBS){
+(async()=>{
+ const ExcelJS=require(process.env.MP_EXPORT_LIBS+'/exceljs');window.ExcelJS=ExcelJS;window.jspdf=require(process.env.MP_EXPORT_LIBS+'/jspdf');require(process.env.MP_EXPORT_LIBS+'/jspdf-autotable');
+ let download;context.capture=(blob,name)=>download={blob,name};
+ run("mpLoadLibs=async()=>{};mpLogos=async()=>[];mpDownload=(blob,name)=>capture(blob,name);");
+ const png=fs.readFileSync(require.resolve('../assets/icon-192.png')).toString('base64');context.testLogo='data:image/png;base64,'+png;
+ run("mpLogos=async()=>[{data:testLogo,ratio:1},{data:testLogo,ratio:1}];");
+ await run("mpExport('xlsx')");assert.match(download.name,/\.xlsx$/);
+ const book=new ExcelJS.Workbook();await book.xlsx.load(Buffer.from(await download.blob.arrayBuffer()));const sheet=book.worksheets[0];assert.equal(sheet.getImages().length,2);assert.equal(sheet.getRow(9).values[2],'Nombre');assert.equal(sheet.getRow(10).values[2],'BETO');assert.match(sheet.headerFooter.oddFooter,/Página &P de &N/);
+ context.pdfCapture=buffer=>fs.writeFileSync('/tmp/cpc-mi-personal-check.pdf',Buffer.from(buffer));
+ window.jspdf.jsPDF.API.save=function(){context.pdfCapture(this.output('arraybuffer'));};
+ run("mpTable().columns=null;mpTable().mode='all';mpState.data.inscripciones=Array.from({length:100},(_,i)=>({usuarioId:i%2?'u1':'u2',cursoId:'c1',curso:'Curso básico',cursoCodigo:'C-2606'}));mpRender();");
+ await run("mpExport('pdf')");assert.ok(fs.statSync('/tmp/cpc-mi-personal-check.pdf').size>1000);
+ console.log('Real Excel/PDF generation: logos, selected columns, visible rows and pagination OK');
+})().catch(e=>{console.error(e);process.exitCode=1;});
+}
